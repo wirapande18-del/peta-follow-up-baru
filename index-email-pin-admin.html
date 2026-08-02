@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Peta Follow Up Service</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <style>
+    :root{--primary:#075d63;--primary2:#0b7c82;--bg:#f3f7f8;--text:#17313a;--muted:#6d848a;--line:#dce8ea;--green:#18a957;--red:#c84646}
+    *{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,Arial,sans-serif;background:var(--bg);color:var(--text)}
+    .hidden{display:none!important}.login-page{min-height:100vh;display:grid;place-items:center;padding:20px;background:linear-gradient(135deg,#e5f2f3,#f8fbfb)}
+    .login-card{width:min(430px,94vw);background:#fff;border:1px solid var(--line);border-radius:22px;padding:28px;box-shadow:0 20px 50px #14343b1c;display:grid;gap:13px}
+    .login-card .logo{font-size:42px}.login-card h1{margin:0}.login-card p{margin:0;color:var(--muted)}.login-card small{color:var(--muted);line-height:1.5}
+    input,select,textarea{width:100%;border:1px solid #d2dfe1;border-radius:11px;padding:11px 12px;background:white;font-size:14px;color:var(--text)}
+    textarea{resize:vertical}.btn{border:0;border-radius:10px;padding:10px 14px;font-weight:700;cursor:pointer;background:#e7eff0;color:var(--text)}
+    .btn.primary{background:var(--primary);color:#fff}.btn.danger{background:#fdeaea;color:var(--red)}
+    .app{display:flex;min-height:100vh}.sidebar{width:230px;background:var(--primary);color:white;padding:18px 13px;display:flex;flex-direction:column;gap:7px;position:sticky;top:0;height:100vh}
+    .brand{font-size:20px;font-weight:800;margin:8px 8px 22px}.nav{border:0;background:transparent;color:white;text-align:left;padding:12px 14px;border-radius:10px;font-size:15px;cursor:pointer}
+    .nav.active,.nav:hover{background:var(--primary2)}.sidebar-bottom{margin-top:auto}.current-user{padding:12px 14px;background:#0a6d73;border-radius:10px;font-weight:800;margin-bottom:6px}
+    .main{flex:1;min-width:0;padding:23px}.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:17px}.topbar h1{margin:0;font-size:28px}.topbar p{margin:5px 0;color:var(--muted)}
+    .badge{background:#d9f4e5;color:#157248;padding:8px 13px;border-radius:999px;font-weight:800}.filters{display:grid;grid-template-columns:minmax(260px,1fr) 170px 200px 170px;gap:10px;margin-bottom:15px}
+    .page{display:none}.page.active{display:block}.cards{display:grid;grid-template-columns:repeat(5,minmax(130px,1fr));gap:13px;margin-bottom:15px}
+    .card,.panel{background:white;border:1px solid var(--line);border-radius:15px;box-shadow:0 4px 14px #14343b0d}.card{padding:17px}.card span{display:block;color:var(--muted);font-weight:700}.card strong{display:block;font-size:30px;margin-top:9px;color:var(--primary)}
+    .panel{padding:16px}.panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}.panel h2{margin:0 0 12px}.panel-head h2{margin:0}.table-wrap{overflow:auto}
+    table{width:100%;border-collapse:collapse;min-width:1100px}th,td{padding:10px;border-bottom:1px solid #e8eff0;text-align:left;vertical-align:top}th{font-size:12px;color:#617a80;background:#fbfdfd;position:sticky;top:0}
+    td small{display:block;color:#778e93;margin-top:3px;max-width:330px}.wa-btn{display:inline-block;background:var(--green);color:white;text-decoration:none;padding:8px 10px;border-radius:9px;font-weight:800;white-space:nowrap}
+    .status-select{min-width:180px}.booking-input{min-width:145px}.notes-input{min-width:180px}.empty{text-align:center;color:#82969a;padding:30px}
+    .upload-box,.settings-box{max-width:720px;display:grid;gap:11px}.file-btn{display:inline-block;width:max-content;background:var(--primary);color:white;padding:11px 16px;border-radius:10px;font-weight:800;cursor:pointer}.hint{color:var(--muted);line-height:1.5}
+    #map{height:68vh;border-radius:12px;overflow:hidden}.map-actions{display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap}.toast{position:fixed;right:18px;bottom:18px;background:#17313a;color:white;padding:12px 16px;border-radius:10px;opacity:0;pointer-events:none;transition:.2s;z-index:9999}.toast.show{opacity:1}
+    hr{border:0;border-top:1px solid var(--line);width:100%}
+    @media(max-width:980px){.sidebar{width:175px}.cards{grid-template-columns:repeat(2,1fr)}.filters{grid-template-columns:1fr 1fr}.main{padding:14px}}
+    @media(max-width:680px){.app{display:block}.sidebar{position:static;width:100%;height:auto;display:grid;grid-template-columns:repeat(3,1fr)}.brand{grid-column:1/-1;margin-bottom:5px}.sidebar-bottom{grid-column:1/-1;display:flex;gap:8px}.current-user{flex:1;margin:0}.main{padding:10px}.topbar h1{font-size:22px}.filters{grid-template-columns:1fr}.cards{grid-template-columns:1fr 1fr}.card strong{font-size:25px}}
+  </style>
+</head>
+<body>
+  <div id="loginPage" class="login-page">
+    <div class="login-card">
+      <div class="logo">🚗</div>
+      <h1>Peta Follow Up</h1>
+      <p>Agung Toyota Gianyar</p>
+      <label>Email</label>
+      <input id="loginEmail" type="email" placeholder="Email pengguna">
+      <label>Password</label>
+      <input id="loginPassword" type="password" placeholder="Password">
+      <button id="loginBtn" class="btn primary">Masuk</button>
+      <small>Login terhubung ke Supabase. Gunakan akun AYU yang sudah dibuat.</small>
+    </div>
+  </div>
+
+  <div id="app" class="app hidden">
+    <aside class="sidebar">
+      <div class="brand">🚗 <span>Peta Follow Up</span></div>
+      <button class="nav active" data-page="dashboard">Dashboard</button>
+      <button class="nav" data-page="followup">Follow Up</button>
+      <button class="nav" data-page="booking">Booking</button>
+      <button class="nav" data-page="map">Peta</button>
+      <button class="nav" data-page="upload">Upload Bulanan</button>
+      <button class="nav" data-page="settings">Pengaturan</button>
+      <div class="sidebar-bottom">
+        <div id="currentUser" class="current-user"></div>
+        <button id="logoutBtn" class="nav">Keluar</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <h1 id="pageTitle">Dashboard</h1>
+          <p>Monitoring follow up, WhatsApp, dan booking customer.</p>
+        </div>
+        <span id="dataCount" class="badge">0 data</span>
+      </header>
+
+      <section id="filters" class="filters">
+        <input id="searchInput" placeholder="Cari nama, plat, model, alamat..." />
+        <select id="saFilter">
+          <option value="ALL">Semua SA</option><option>AYU</option><option>FIK</option><option>WBN</option><option>AJS</option>
+        </select>
+        <select id="statusFilter"><option value="ALL">Semua Status</option></select>
+        <select id="periodFilter"><option value="ALL">Semua Periode</option></select>
+      </section>
+
+      <section id="dashboardPage" class="page active">
+        <div class="cards">
+          <article class="card"><span>Total Customer</span><strong id="statTotal">0</strong></article>
+          <article class="card"><span>Sudah Follow Up</span><strong id="statFollowed">0</strong></article>
+          <article class="card"><span>Berhasil Booking</span><strong id="statBooking">0</strong></article>
+          <article class="card"><span>Sudah Datang</span><strong id="statArrived">0</strong></article>
+          <article class="card"><span>Keberhasilan</span><strong id="statRate">0%</strong></article>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h2>Ringkasan Customer</h2><button id="exportBtn" class="btn">Download Excel</button></div>
+          <div id="dashboardTable"></div>
+        </div>
+      </section>
+
+      <section id="followupPage" class="page"><div class="panel"><h2>Daftar Follow Up</h2><div id="followupTable"></div></div></section>
+      <section id="bookingPage" class="page"><div class="panel"><h2>Daftar Booking</h2><div id="bookingTable"></div></div></section>
+      <section id="mapPage" class="page">
+        <div class="panel">
+          <div class="map-actions">
+            <button id="geocodeBtn" class="btn primary">Cari Pin dari Alamat</button>
+            <span id="geocodeStatus" class="hint"></span>
+          </div>
+          <div id="map"></div>
+          <p class="hint">Pin dibuat dari Latitude/Longitude atau dicari otomatis dari alamat. Pencarian diproses bertahap agar stabil.</p>
+        </div>
+      </section>
+
+      <section id="uploadPage" class="page">
+        <div class="panel upload-box">
+          <h2>Upload Data Bulanan</h2>
+          <p>Header: POLICE_NO, CUSTOMER, MODEL, VIN, KM, SERVICE_ADVISOR, TELEPHONE_CP, RANGKA des, ADDRESS.</p>
+          <label>Periode data</label><input id="uploadPeriod" type="month" />
+          <label class="file-btn">Pilih File Excel<input id="excelFile" type="file" accept=".xlsx,.xls" hidden /></label>
+          <div id="uploadResult" class="hint"></div>
+        </div>
+      </section>
+
+      <section id="settingsPage" class="page">
+        <div class="panel settings-box">
+          <h2>Template WhatsApp</h2>
+          <textarea id="waTemplate" rows="7"></textarea>
+          <p class="hint">Gunakan: {nama}, {model}, {plat}, {sa}, {tanggal_booking}</p>
+          <button id="saveSettingsBtn" class="btn primary">Simpan Template</button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    const SUPABASE_URL="https://okordtjhfbuwhphsmzih.supabase.co";
+    const SUPABASE_KEY="sb_publishable_h281zfZun5tPEIRQUG4G1Q_SpqZ1p1t";
+    const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+    const STATUS_LIST=["Belum Follow Up","Sudah Dihubungi","Menunggu Jawaban","Hubungi Kembali","Berhasil Booking","Sudah Datang","Batal","Nomor Tidak Aktif","Kendaraan Dijual","Sudah Service di Tempat Lain","Tidak Bersedia"];
+    const DEFAULT_WA="Selamat pagi Bapak/Ibu {nama}, kami dari Agung Toyota Gianyar ingin mengingatkan jadwal perawatan kendaraan {model} ({plat}). Apakah kami dapat membantu membuatkan booking servis?";
+    const $=id=>document.getElementById(id);let profile=null,rows=[],currentPage="dashboard",map,markerLayer;
+    const toast=m=>{const e=$("toast");e.textContent=m;e.classList.add("show");setTimeout(()=>e.classList.remove("show"),2500)};
+    const clean=v=>String(v??"").trim();
+    const esc=v=>String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
+    function normalizePhone(v){const d=String(v??"").replace(/\D/g,"");if(!d)return"";if(d.startsWith("62"))return d;if(d.startsWith("0"))return"62"+d.slice(1);return"62"+d}
+    function normalizeSA(v){const x=clean(v).toUpperCase();if(x.includes("AYU"))return"AYU";if(x.includes("FIK")||x.includes("FIX"))return"FIK";if(x.includes("WBN"))return"WBN";if(x.includes("AJS"))return"AJS";return x}
+    const recordKey=r=>`${r.period}|${r.service_advisor}|${r.police_no}|${r.vin}`.toUpperCase();
+    async function login(){const email=$("loginEmail").value.trim(),password=$("loginPassword").value;if(!email||!password)return toast("Isi email dan password.");const {error}=await sb.auth.signInWithPassword({email,password});if(error)return toast("Login gagal: "+error.message);await initializeSession()}
+    async function logout(){await sb.auth.signOut();location.reload()}
+    async function initializeSession(){const {data:{session}}=await sb.auth.getSession();if(!session)return;const {data,error}=await sb.from("profiles").select("*").eq("id",session.user.id).single();if(error||!data)return toast("Profil pengguna belum terhubung.");profile=data;$("loginPage").classList.add("hidden");$("app").classList.remove("hidden");$("currentUser").textContent=`${profile.display_name} • ${profile.role}`;$("saFilter").disabled=profile.role!=="ADMIN";if(profile.role!=="ADMIN")$("saFilter").value=profile.sa_code;await loadData()}
+    async function loadData(){const {data,error}=await sb.from("customers").select("*").order("created_at",{ascending:false});if(error)return toast("Gagal membaca data: "+error.message);rows=(data||[]).map(r=>({...r,customer:r.customer_name}));renderAll()}
+    function visibleRows(){const q=$("searchInput").value.toLowerCase().trim(),sa=$("saFilter").value,st=$("statusFilter").value,p=$("periodFilter").value;return rows.filter(r=>{const s=sa==="ALL"||r.service_advisor===sa,t=st==="ALL"||r.follow_up_status===st,pp=p==="ALL"||r.period===p,text=`${r.customer} ${r.police_no} ${r.model} ${r.address} ${r.telephone}`.toLowerCase();return s&&t&&pp&&(!q||text.includes(q))})}
+    function updateFilters(){const oldStatus=$("statusFilter").value,oldPeriod=$("periodFilter").value;$("statusFilter").innerHTML='<option value="ALL">Semua Status</option>'+STATUS_LIST.map(x=>`<option>${x}</option>`).join("");if(STATUS_LIST.includes(oldStatus))$("statusFilter").value=oldStatus;const ps=[...new Set(rows.map(r=>r.period).filter(Boolean))].sort().reverse();$("periodFilter").innerHTML='<option value="ALL">Semua Periode</option>'+ps.map(x=>`<option>${x}</option>`).join("");if(ps.includes(oldPeriod))$("periodFilter").value=oldPeriod}
+    function setPage(p){currentPage=p;document.querySelectorAll(".page").forEach(x=>x.classList.remove("active"));document.querySelectorAll(".nav[data-page]").forEach(x=>x.classList.remove("active"));$(`${p}Page`).classList.add("active");document.querySelector(`.nav[data-page="${p}"]`).classList.add("active");$("pageTitle").textContent={dashboard:"Dashboard",followup:"Follow Up",booking:"Booking",map:"Peta",upload:"Upload Bulanan",settings:"Pengaturan"}[p];$("filters").style.display=["upload","settings","map"].includes(p)?"none":"grid";if(p==="map")setTimeout(renderMap,100)}
+    function renderAll(){updateFilters();const l=visibleRows(),total=l.length,followed=l.filter(r=>r.follow_up_status!=="Belum Follow Up").length,booking=l.filter(r=>r.follow_up_status==="Berhasil Booking").length,arrived=l.filter(r=>r.follow_up_status==="Sudah Datang").length;$("dataCount").textContent=`${total} data`;$("statTotal").textContent=total;$("statFollowed").textContent=followed;$("statBooking").textContent=booking;$("statArrived").textContent=arrived;$("statRate").textContent=total?`${Math.round(followed/total*100)}%`:"0%";$("dashboardTable").innerHTML=tableHTML(l.slice(0,20));$("followupTable").innerHTML=tableHTML(l);$("bookingTable").innerHTML=tableHTML(l.filter(r=>r.booking_date||["Berhasil Booking","Sudah Datang","Batal"].includes(r.follow_up_status)));bindTableEvents();if(currentPage==="map")renderMap()}
+    function tableHTML(l){if(!l.length)return'<div class="empty">Belum ada data.</div>';return`<div class="table-wrap"><table><thead><tr><th>Customer</th><th>Plat</th><th>Model</th><th>SA</th><th>Telepon</th><th>Status</th><th>Booking</th><th>Catatan</th><th>WA</th></tr></thead><tbody>${l.map(r=>`<tr><td><b>${esc(r.customer)}</b><small>${esc(r.address)}</small></td><td>${esc(r.police_no)}</td><td>${esc(r.model)}</td><td>${esc(r.service_advisor)}</td><td>${esc(r.telephone||"-")}</td><td><select class="status-select row-status" data-id="${r.id}">${STATUS_LIST.map(s=>`<option ${s===r.follow_up_status?"selected":""}>${s}</option>`).join("")}</select></td><td><input class="booking-input row-booking" data-id="${r.id}" type="date" value="${r.booking_date||""}"></td><td><input class="notes-input row-notes" data-id="${r.id}" value="${esc(r.notes||"")}" placeholder="Catatan..."></td><td>${r.telephone?`<a class="wa-btn" target="_blank" href="${waLink(r)}">WhatsApp</a>`:"-"}</td></tr>`).join("")}</tbody></table></div>`}
+    function bindTableEvents(){document.querySelectorAll(".row-status").forEach(e=>e.onchange=()=>updateRow(e.dataset.id,{follow_up_status:e.value}));document.querySelectorAll(".row-booking").forEach(e=>e.onchange=()=>updateBooking(e.dataset.id,e.value));document.querySelectorAll(".row-notes").forEach(e=>e.onchange=()=>updateRow(e.dataset.id,{notes:e.value}))}
+    async function updateRow(id,patch){const {error}=await sb.from("customers").update(patch).eq("id",id);if(error)return toast("Gagal menyimpan: "+error.message);const row=rows.find(r=>r.id===id);if(row&&patch.follow_up_status){await sb.from("follow_ups").insert({customer_id:id,follow_up_date:new Date().toISOString().slice(0,10),service_advisor:row.service_advisor,status:patch.follow_up_status,notes:patch.notes||row.notes||"",wa_sent:false})}await loadData();toast("Data tersimpan online")}
+    async function updateBooking(id,date){const row=rows.find(r=>r.id===id);if(!row)return;const patch={booking_date:date||null,follow_up_status:date?"Berhasil Booking":"Belum Follow Up"};const {error}=await sb.from("customers").update(patch).eq("id",id);if(error)return toast("Gagal menyimpan booking: "+error.message);if(date){await sb.from("bookings").insert({customer_id:id,booking_date:date,booking_status:"Terjadwal",remarks:"Dibuat dari aplikasi"})}await loadData();toast("Booking tersimpan")}
+    function waLink(r){let t=localStorage.getItem("pfu_wa_template")||DEFAULT_WA;t=t.replaceAll("{nama}",r.customer||"").replaceAll("{model}",r.model||"").replaceAll("{plat}",r.police_no||"").replaceAll("{sa}",r.service_advisor||"").replaceAll("{tanggal_booking}",r.booking_date||"");return`https://wa.me/${r.telephone}?text=${encodeURIComponent(t)}`}
+    async function importExcel(file){if(!file)return;const period=$("uploadPeriod").value;if(!period)return toast("Pilih periode.");const b=await file.arrayBuffer(),wb=XLSX.read(b,{type:"array"}),ws=wb.Sheets[wb.SheetNames[0]],raw=XLSX.utils.sheet_to_json(ws,{defval:""});const parsed=raw.map(x=>({record_key:"",period,police_no:clean(x.POLICE_NO),customer_name:clean(x.CUSTOMER),model:clean(x.MODEL),vin:clean(x.VIN||x["RANGKA des"]),km:Number(x.KM||0),service_advisor:normalizeSA(x.SERVICE_ADVISOR),telephone:normalizePhone(x.TELEPHONE_CP),address:clean(x.ADDRESS),latitude:Number(x.LATITUDE||x.Latitude||0)||null,longitude:Number(x.LONGITUDE||x.Longitude||0)||null,follow_up_status:"Belum Follow Up",booking_date:null,booking_time:null,notes:""})).filter(r=>(r.police_no||r.customer_name)&&["AYU","FIK","WBN","AJS"].includes(r.service_advisor));parsed.forEach(r=>r.record_key=recordKey(r));const {data:{user}}=await sb.auth.getUser();const {data:batch,error:batchError}=await sb.from("upload_batches").insert({period,file_name:file.name,total_rows:parsed.length,uploaded_by:user.id}).select().single();if(batchError)return toast("Gagal mencatat upload: "+batchError.message);const {error}=await sb.from("customers").upsert(parsed,{onConflict:"record_key"});if(error)return toast("Upload gagal: "+error.message);$("uploadResult").textContent=`${parsed.length} baris berhasil disimpan online.`;await loadData();toast("Upload berhasil")}
+
+    const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+
+    async function findCoordinates(address){
+      const q=encodeURIComponent(`${address}, Bali, Indonesia`);
+      const url=`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=id&q=${q}`;
+      const response=await fetch(url,{headers:{"Accept":"application/json"}});
+      if(!response.ok)throw new Error(`HTTP ${response.status}`);
+      const result=await response.json();
+      if(!result.length)return null;
+      return {latitude:Number(result[0].lat),longitude:Number(result[0].lon)};
+    }
+
+    async function geocodeMissingRows(){
+      if(!profile||profile.role!=="ADMIN")return toast("Hanya ADMIN yang dapat mencari pin.");
+      const pending=rows.filter(r=>!r.latitude&&!r.longitude&&clean(r.address)).slice(0,50);
+      if(!pending.length){
+        $("geocodeStatus").textContent="Semua alamat yang tersedia sudah mempunyai koordinat.";
+        return toast("Tidak ada alamat yang perlu dicari.");
+      }
+
+      const button=$("geocodeBtn");
+      button.disabled=true;
+      let found=0,failed=0;
+
+      for(let i=0;i<pending.length;i++){
+        const row=pending[i];
+        $("geocodeStatus").textContent=`Mencari ${i+1} dari ${pending.length}: ${row.customer||row.police_no}`;
+        try{
+          const point=await findCoordinates(row.address);
+          if(point){
+            const {error}=await sb.from("customers").update(point).eq("id",row.id);
+            if(error)throw error;
+            found++;
+          }else{
+            failed++;
+          }
+        }catch(error){
+          console.error("Geocode gagal",row.address,error);
+          failed++;
+        }
+        await sleep(1100);
+      }
+
+      button.disabled=false;
+      $("geocodeStatus").textContent=`Selesai: ${found} pin ditemukan, ${failed} belum ditemukan. Klik lagi bila masih ada data berikutnya.`;
+      await loadData();
+      if(currentPage==="map")renderMap();
+      toast(`${found} pin berhasil dibuat`);
+    }
+
+    function exportExcel(){const l=visibleRows().map(r=>({PERIODE:r.period,POLICE_NO:r.police_no,CUSTOMER:r.customer,MODEL:r.model,VIN:r.vin,KM:r.km,SERVICE_ADVISOR:r.service_advisor,TELEPHONE_CP:r.telephone,ADDRESS:r.address,STATUS:r.follow_up_status,TANGGAL_BOOKING:r.booking_date,CATATAN:r.notes}));if(!l.length)return toast("Tidak ada data.");const ws=XLSX.utils.json_to_sheet(l),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Follow Up");XLSX.writeFile(wb,`follow-up-${new Date().toISOString().slice(0,10)}.xlsx`)}
+    function renderMap(){if(!map){map=L.map("map").setView([-8.544,115.325],10);L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:"© OpenStreetMap"}).addTo(map);markerLayer=L.layerGroup().addTo(map)}markerLayer.clearLayers();const pts=visibleRows().filter(r=>r.latitude&&r.longitude);pts.forEach(r=>L.marker([r.latitude,r.longitude]).bindPopup(`<b>${esc(r.customer)}</b><br>${esc(r.police_no)}<br>${esc(r.address)}`).addTo(markerLayer));if(pts.length)map.fitBounds(L.latLngBounds(pts.map(r=>[r.latitude,r.longitude])),{padding:[30,30]});setTimeout(()=>map.invalidateSize(),100)}
+    document.querySelectorAll(".nav[data-page]").forEach(b=>b.onclick=()=>setPage(b.dataset.page));$("loginBtn").onclick=login;$("logoutBtn").onclick=logout;$("searchInput").oninput=renderAll;$("saFilter").onchange=renderAll;$("statusFilter").onchange=renderAll;$("periodFilter").onchange=renderAll;$("excelFile").onchange=e=>importExcel(e.target.files[0]);$("exportBtn").onclick=exportExcel;$("geocodeBtn").onclick=geocodeMissingRows;$("saveSettingsBtn").onclick=()=>{localStorage.setItem("pfu_wa_template",$("waTemplate").value||DEFAULT_WA);toast("Template disimpan")};$("waTemplate").value=localStorage.getItem("pfu_wa_template")||DEFAULT_WA;$("uploadPeriod").value=new Date().toISOString().slice(0,7);initializeSession();
+  </script>
+</body>
+</html>
