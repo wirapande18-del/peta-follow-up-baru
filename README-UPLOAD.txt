@@ -1,19 +1,20 @@
-PETA FOLLOW UP V4 - MULTI TEMPLATE WHATSAPP
+PETA FOLLOW UP V4 FIX
 
-Fitur:
-- + Tambah Template WhatsApp tanpa batas praktis.
-- Nama template dan isi pesan bisa diedit.
-- Template bisa dihapus.
-- Tombol Simpan Semua Template.
-- Saat klik WhatsApp, muncul pilihan template.
-- Template lama yang sebelumnya disimpan akan dimigrasikan otomatis menjadi "Template Lama".
-- Disertakan default Reminder Service dan Promo Servis Merdeka.
-- Tetap membawa upload Excel multi-header + anti duplikat.
-- Data customer di Supabase tidak diubah oleh update file ini.
+Yang diperbaiki:
+- Tombol + Tambah Template benar-benar muncul.
+- Bisa simpan banyak template WhatsApp.
+- Bisa edit nama dan isi template.
+- Bisa hapus template.
+- Klik WhatsApp memunculkan pilihan template.
+- Template lama dimigrasikan otomatis.
+- Default Promo Servis Merdeka ikut tersedia.
+- Multi-header Excel + anti duplikat tetap aktif.
+- Data customer di Supabase tidak dihapus/diubah oleh file update ini.
 
 Cara pasang:
 1. Extract ZIP.
-2. Upload index.html ke root repository peta-follow-up-baru.
+2. Upload HANYA index.html ke root repo GitHub.
 3. Replace index.html lama dan Commit.
-4. Tunggu Vercel deploy otomatis.
-5. Refresh aplikasi, buka Pengaturan.
+4. Pastikan baris index.html di GitHub tertulis now.
+5. Tunggu Vercel deploy lalu refresh.
+6. Pengaturan harus menampilkan tulisan V4 FIX dan tombol + Tambah Template.
