@@ -1,240 +1,59 @@
 <!doctype html>
 <html lang="id">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Peta Follow Up Service</title>
-  <style>
-    body{font-family:system-ui,Arial,sans-serif;background:#f3f7f8;color:#17313a;display:grid;place-items:center;min-height:100vh;margin:0}
-    .loading{background:#fff;border:1px solid #dce8ea;border-radius:16px;padding:24px;max-width:560px;box-shadow:0 8px 28px #14343b18}
-  </style>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Peta Follow Up Service</title>
+<style>
+body{font-family:system-ui,Arial,sans-serif;background:#f3f7f8;color:#17313a;display:grid;place-items:center;min-height:100vh;margin:0}
+.loading{background:#fff;border:1px solid #dce8ea;border-radius:16px;padding:24px;max-width:560px;box-shadow:0 8px 28px #14343b18}
+</style>
 </head>
 <body>
-  <div class="loading" id="loading">
-    <b>Memuat Peta Follow Up...</b><br><small>Versi multi-header + template WhatsApp.</small>
-  </div>
+<div class="loading" id="loading"><b>Memuat Peta Follow Up...</b><br><small>Versi multi-header + multi template WhatsApp.</small></div>
 <script>
 (async()=>{
-  const ORIGINAL_URL='https://raw.githubusercontent.com/wirapande18-del/peta-follow-up-baru/2b3987d69df46c2353f4b72fff4f7c586a8c3af9/index.html';
-  const NEW_IMPORT=`function normalizeHeaderName(value){
-  return clean(value)
-    .toUpperCase()
-    .replace(/[\\r\\n\\t]+/g," ")
-    .replace(/[._\\-\\/\\\\]+/g," ")
-    .replace(/\\s+/g," ")
-    .trim();
-}
+ const ORIGINAL_URL="https://raw.githubusercontent.com/wirapande18-del/peta-follow-up-baru/2b3987d69df46c2353f4b72fff4f7c586a8c3af9/index.html";
+ const NEW_IMPORT="function normalizeHeaderName(value){\n  return clean(value).toUpperCase()\n    .replace(/[\\r\\n\\t]+/g,\" \")\n    .replace(/[._\\-\\/\\\\]+/g,\" \")\n    .replace(/\\s+/g,\" \").trim();\n}\nconst HEADER_ALIASES={\n  POLICE_NO:[\"POLICE_NO\",\"POLICE NO\",\"POLICE NUMBER\",\"PLAT\",\"PLAT NO\",\"PLAT NOMOR\",\"NO POLISI\",\"NOMOR POLISI\",\"NOPOL\",\"NO POL\"],\n  CUSTOMER:[\"CUSTOMER\",\"CUSTOMER NAME\",\"NAMA CUSTOMER\",\"NAMA PELANGGAN\",\"PELANGGAN\",\"NAMA\"],\n  MODEL:[\"MODEL\",\"MODEL NAME\",\"TIPE MODEL\",\"TYPE MODEL\",\"VEHICLE MODEL\",\"MODEL KENDARAAN\"],\n  VIN:[\"VIN\",\"VIN NO\",\"VIN NUMBER\",\"NO VIN\",\"NOMOR VIN\",\"CHASSIS NO\",\"CHASSIS NUMBER\",\"NO CHASSIS\",\"NOMOR CHASSIS\"],\n  SERVICE_ADVISOR:[\"SERVICE_ADVISOR\",\"SERVICE ADVISOR\",\"SERVICE ADVISER\",\"SA\",\"SA NAME\",\"NAMA SA\",\"ADVISOR\",\"ADVISER\"],\n  TELEPHONE_CP:[\"TELEPHONE_CP\",\"TELEPHONE CP\",\"TELEPHONE\",\"PHONE\",\"PHONE NO\",\"PHONE NUMBER\",\"NO HP\",\"NOMOR HP\",\"HP\",\"NO TELP\",\"NOMOR TELP\",\"TELP\",\"TELEPON\",\"WHATSAPP\",\"WA\",\"NO WA\",\"NOMOR WA\"],\n  RANGKA:[\"RANGKA\",\"RANGKA DES\",\"RANGKA DESCRIPTION\",\"NO RANGKA\",\"NOMOR RANGKA\",\"CHASSIS\",\"CHASSIS DES\",\"CHASSIS DESCRIPTION\"],\n  ADDRESS:[\"ADDRESS\",\"ALAMAT\",\"CUSTOMER ADDRESS\",\"ALAMAT CUSTOMER\",\"ADDRESS CUSTOMER\"]\n};\nfunction buildHeaderLookup(row){\n  const map={}; (row||[]).forEach((v,i)=>{const k=normalizeHeaderName(v);if(k && !(k in map))map[k]=i}); return map;\n}\nfunction findHeaderIndex(lookup,aliases){\n  for(const a of aliases){const k=normalizeHeaderName(a);if(k in lookup)return lookup[k]} return -1;\n}\nfunction detectHeaderRow(matrix){\n  let best={rowIndex:-1,score:-1,lookup:{}};\n  for(let i=0;i<Math.min(matrix.length,25);i++){\n    const lookup=buildHeaderLookup(matrix[i]); let score=0;\n    Object.values(HEADER_ALIASES).forEach(a=>{if(findHeaderIndex(lookup,a)>=0)score++});\n    if(score>best.score)best={rowIndex:i,score,lookup};\n  }\n  return best;\n}\nasync function importExcel(file){\n  if(!file)return;\n  const period=$(\"uploadPeriod\").value;\n  if(!period)return toast(\"Pilih periode.\");\n  $(\"uploadResult\").textContent=\"Membaca file Excel...\";\n  try{\n    const b=await file.arrayBuffer();\n    const wb=XLSX.read(b,{type:\"array\"});\n    const ws=wb.Sheets[wb.SheetNames[0]];\n    const matrix=XLSX.utils.sheet_to_json(ws,{header:1,defval:\"\",raw:false});\n    const d=detectHeaderRow(matrix);\n    if(d.rowIndex<0 || d.score<4){\n      $(\"uploadResult\").textContent=\"Header tidak dikenali. Cek kolom utama seperti POLICE_NO, CUSTOMER, MODEL, SERVICE_ADVISOR, TELEPHONE_CP, VIN/RANGKA, ADDRESS.\";\n      return toast(\"Header Excel tidak dikenali\");\n    }\n    const L=d.lookup, idx={\n      police_no:findHeaderIndex(L,HEADER_ALIASES.POLICE_NO),\n      customer_name:findHeaderIndex(L,HEADER_ALIASES.CUSTOMER),\n      model:findHeaderIndex(L,HEADER_ALIASES.MODEL),\n      vin:findHeaderIndex(L,HEADER_ALIASES.VIN),\n      service_advisor:findHeaderIndex(L,HEADER_ALIASES.SERVICE_ADVISOR),\n      telephone:findHeaderIndex(L,HEADER_ALIASES.TELEPHONE_CP),\n      rangka:findHeaderIndex(L,HEADER_ALIASES.RANGKA),\n      address:findHeaderIndex(L,HEADER_ALIASES.ADDRESS)\n    };\n    const v=(r,i)=>i>=0?r[i]:\"\";\n    const parsed=matrix.slice(d.rowIndex+1).map(r=>{\n      const vin=clean(v(r,idx.vin)), rangka=clean(v(r,idx.rangka));\n      return {\n        record_key:\"\",period,\n        police_no:clean(v(r,idx.police_no)),\n        customer_name:clean(v(r,idx.customer_name)),\n        model:clean(v(r,idx.model)),\n        vin:vin||rangka,km:0,\n        service_advisor:normalizeSA(v(r,idx.service_advisor)),\n        telephone:normalizePhone(v(r,idx.telephone)),\n        address:clean(v(r,idx.address)),\n        latitude:null,longitude:null,\n        follow_up_status:\"Belum Follow Up\",booking_date:null,booking_time:null,notes:\"\"\n      };\n    }).filter(r=>(r.police_no||r.customer_name||r.vin)&&[\"AYU\",\"FIK\",\"WBN\",\"AJS\"].includes(r.service_advisor));\n    if(!parsed.length)return toast(\"Tidak ada data valid\");\n    parsed.forEach(r=>r.record_key=recordKey(r));\n    const uniq=new Map(); parsed.forEach(r=>uniq.set(r.record_key,r));\n    const uniqueParsed=[...uniq.values()], duplicateCount=parsed.length-uniqueParsed.length;\n    const {data:{user}}=await sb.auth.getUser();\n    const {error:be}=await sb.from(\"upload_batches\").insert({\n      period,file_name:file.name,total_rows:uniqueParsed.length,uploaded_by:user.id\n    }).select().single();\n    if(be)return toast(\"Gagal mencatat upload: \"+be.message);\n    const {error}=await sb.from(\"customers\").upsert(uniqueParsed,{onConflict:\"record_key\"});\n    if(error)return toast(\"Upload gagal: \"+error.message);\n    $(\"uploadResult\").textContent=`${uniqueParsed.length} baris berhasil disimpan.${duplicateCount?` ${duplicateCount} data ganda diabaikan.`:\"\"} Header terdeteksi di baris ${d.rowIndex+1}.`;\n    await loadData(); toast(\"Upload berhasil\");\n  }catch(e){console.error(e);$(\"uploadResult\").textContent=\"Gagal membaca file: \"+e.message;toast(\"Upload gagal\")}\n}";
+ const MULTI_WA="const DEFAULT_WA_TEMPLATES=[\n  {id:\"reminder\",name:\"Reminder Service\",text:\"Selamat pagi Bapak/Ibu {nama}, kami dari Agung Toyota Gianyar ingin mengingatkan jadwal perawatan kendaraan {model} ({plat}). Apakah kami dapat membantu membuatkan booking servis?\"},\n  {id:\"promo\",name:\"Promo Servis Merdeka\",text:\"🇮🇩 PROMO SERVIS MERDEKA! 🚗✨\\nHalo Bapak/Ibu {nama} 👋\\nAda promo spesial untuk {model} - {plat} selama Agustus:\\n🔥 DISKON JASA 25%\\n🛢️ FREE OLI 1 LITER\\nKhusus untuk Servis Berkala bulan Agustus.\\n📅 Mau kami bantu booking servisnya?\\nBalas “YA”, kami siap aturkan jadwalnya. 😊\\n\\nAgung Toyota Gianyar\"}\n];\nfunction newTemplateId(){return \"tpl_\"+Date.now()+\"_\"+Math.random().toString(36).slice(2,7)}\nfunction getWaTemplates(){\n  try{\n    const saved=JSON.parse(localStorage.getItem(\"pfu_wa_templates\")||\"null\");\n    if(Array.isArray(saved)&&saved.length)return saved;\n  }catch(e){}\n  const legacy=localStorage.getItem(\"pfu_wa_template\");\n  if(legacy){\n    const migrated=[{id:newTemplateId(),name:\"Template Lama\",text:legacy},...DEFAULT_WA_TEMPLATES];\n    localStorage.setItem(\"pfu_wa_templates\",JSON.stringify(migrated));\n    return migrated;\n  }\n  const defaults=DEFAULT_WA_TEMPLATES.map(x=>({...x}));\n  localStorage.setItem(\"pfu_wa_templates\",JSON.stringify(defaults));\n  return defaults;\n}\nfunction saveWaTemplates(list){localStorage.setItem(\"pfu_wa_templates\",JSON.stringify(list))}\nfunction fillWaTemplate(text,r){\n  return String(text||\"\")\n    .replaceAll(\"{nama}\",r.customer||\"\")\n    .replaceAll(\"{model}\",r.model||\"\")\n    .replaceAll(\"{plat}\",r.police_no||\"\")\n    .replaceAll(\"{sa}\",r.service_advisor||\"\")\n    .replaceAll(\"{tanggal_booking}\",r.booking_date||\"\");\n}\nfunction waUrl(r,t){return `https://wa.me/${r.telephone}?text=${encodeURIComponent(fillWaTemplate(t.text,r))}`}\nfunction renderWaTemplateSettings(){\n  const host=$(\"waTemplateList\"); if(!host)return;\n  const list=getWaTemplates();\n  host.innerHTML=list.map((t,i)=>`\n    <div class=\"template-card\" data-index=\"${i}\">\n      <div class=\"template-head\"><b>${esc(t.name||(\"Template \"+(i+1)))}</b><button class=\"btn danger wa-delete\" data-index=\"${i}\">Hapus</button></div>\n      <label>Nama Template</label>\n      <input class=\"wa-name\" data-index=\"${i}\" value=\"${esc(t.name||\"\")}\">\n      <label>Isi Pesan</label>\n      <textarea class=\"wa-text\" data-index=\"${i}\" rows=\"6\">${esc(t.text||\"\")}</textarea>\n    </div>`).join(\"\");\n  document.querySelectorAll(\".wa-delete\").forEach(b=>b.onclick=()=>{\n    const list=getWaTemplates(); const i=Number(b.dataset.index);\n    if(!confirm(`Hapus template \"${list[i]?.name||\"ini\"}\"?`))return;\n    list.splice(i,1); saveWaTemplates(list); renderWaTemplateSettings(); toast(\"Template dihapus\");\n  });\n}\nfunction collectWaTemplates(){\n  const list=getWaTemplates();\n  document.querySelectorAll(\".wa-name\").forEach(e=>{const i=Number(e.dataset.index);if(list[i])list[i].name=e.value.trim()||`Template ${i+1}`});\n  document.querySelectorAll(\".wa-text\").forEach(e=>{const i=Number(e.dataset.index);if(list[i])list[i].text=e.value});\n  saveWaTemplates(list); return list;\n}\nfunction addWaTemplate(){\n  const list=collectWaTemplates();\n  list.push({id:newTemplateId(),name:`Template ${list.length+1}`,text:\"Halo Bapak/Ibu {nama}, \"});\n  saveWaTemplates(list); renderWaTemplateSettings();\n  setTimeout(()=>document.querySelector(\".template-card:last-child\")?.scrollIntoView({behavior:\"smooth\",block:\"center\"}),50);\n}\nfunction openWaTemplateModal(id){\n  const r=rows.find(x=>String(x.id)===String(id));\n  if(!r||!r.telephone)return toast(\"Nomor WhatsApp tidak tersedia\");\n  const list=getWaTemplates();\n  if(!list.length)return toast(\"Belum ada template WhatsApp\");\n  $(\"waTemplateChoices\").innerHTML=list.map((t,i)=>`\n    <button data-i=\"${i}\"><b>${esc(t.name||`Template ${i+1}`)}</b><span>${esc(fillWaTemplate(t.text,r)).slice(0,150)}</span></button>`).join(\"\");\n  $(\"waTemplateChoices\").querySelectorAll(\"button\").forEach(b=>b.onclick=()=>{\n    window.open(waUrl(r,list[Number(b.dataset.i)]),\"_blank\");\n    $(\"waTemplateModal\").classList.remove(\"show\");\n  });\n  $(\"waTemplateModal\").classList.add(\"show\");\n}";
+ try{
+  let html=await fetch(ORIGINAL_URL,{cache:"no-store"}).then(r=>{if(!r.ok)throw new Error("HTTP "+r.status);return r.text()});
+  html=html.replace('<p>Header: POLICE_NO, CUSTOMER, MODEL, VIN, KM, SERVICE_ADVISOR, TELEPHONE_CP, RANGKA des, ADDRESS.</p>',
+    '<p>Header fleksibel. Sistem hanya mengambil: <b>POLICE_NO, CUSTOMER, MODEL, VIN, SERVICE_ADVISOR, TELEPHONE_CP, RANGKA, ADDRESS</b>. Kolom lain diabaikan.</p>');
+  html=html.replace(/    async function importExcel\(file\)\{.*?\}\n\n    const sleep=/s, NEW_IMPORT+"\n\n    const sleep=");
 
-const HEADER_ALIASES={
-  POLICE_NO:["POLICE_NO","POLICE NO","POLICE NUMBER","PLAT","PLAT NO","PLAT NOMOR","NO POLISI","NOMOR POLISI","NOPOL","NO POL"],
-  CUSTOMER:["CUSTOMER","CUSTOMER NAME","NAMA CUSTOMER","NAMA PELANGGAN","PELANGGAN","NAMA"],
-  MODEL:["MODEL","MODEL NAME","TIPE MODEL","TYPE MODEL","VEHICLE MODEL","MODEL KENDARAAN"],
-  VIN:["VIN","VIN NO","VIN NUMBER","NO VIN","NOMOR VIN","CHASSIS NO","CHASSIS NUMBER","NO CHASSIS","NOMOR CHASSIS"],
-  SERVICE_ADVISOR:["SERVICE_ADVISOR","SERVICE ADVISOR","SERVICE ADVISER","SA","SA NAME","NAMA SA","ADVISOR","ADVISER"],
-  TELEPHONE_CP:["TELEPHONE_CP","TELEPHONE CP","TELEPHONE","PHONE","PHONE NO","PHONE NUMBER","NO HP","NOMOR HP","HP","NO TELP","NOMOR TELP","TELP","TELEPON","WHATSAPP","WA","NO WA","NOMOR WA"],
-  RANGKA:["RANGKA","RANGKA DES","RANGKA DESCRIPTION","NO RANGKA","NOMOR RANGKA","CHASSIS","CHASSIS DES","CHASSIS DESCRIPTION"],
-  ADDRESS:["ADDRESS","ALAMAT","CUSTOMER ADDRESS","ALAMAT CUSTOMER","ADDRESS CUSTOMER"]
-};
+  html=html.replace('.toast{position:fixed;right:18px;bottom:18px;background:#17313a;color:white;padding:12px 16px;border-radius:10px;opacity:0;pointer-events:none;transition:.2s;z-index:9999}.toast.show{opacity:1}',
+    '.toast{position:fixed;right:18px;bottom:18px;background:#17313a;color:white;padding:12px 16px;border-radius:10px;opacity:0;pointer-events:none;transition:.2s;z-index:9999}.toast.show{opacity:1}.template-list{display:grid;gap:12px}.template-card{border:1px solid var(--line);border-radius:12px;padding:12px;background:#fbfdfd;display:grid;gap:7px}.template-head{display:flex;justify-content:space-between;align-items:center;gap:10px}.template-card textarea{min-height:110px}.modal-backdrop{position:fixed;inset:0;background:#10292f88;display:none;align-items:center;justify-content:center;padding:16px;z-index:9998}.modal-backdrop.show{display:flex}.modal-card{width:min(560px,96vw);max-height:88vh;overflow:auto;background:#fff;border-radius:16px;border:1px solid var(--line);box-shadow:0 20px 60px #0003;padding:18px}.template-pick{display:grid;gap:9px}.template-pick button{width:100%;text-align:left;border:1px solid var(--line);background:#f8fbfb;padding:12px;border-radius:10px;cursor:pointer}.template-pick button b{display:block;margin-bottom:4px}.template-pick button span{font-size:12px;color:#6d848a}');
 
-function buildHeaderLookup(headerRow){
-  const map={};
-  headerRow.forEach((value,index)=>{
-    const normalized=normalizeHeaderName(value);
-    if(normalized && !Object.prototype.hasOwnProperty.call(map,normalized)) map[normalized]=index;
-  });
-  return map;
-}
+  html=html.replace('<section id="settingsPage" class="page"><div class="panel settings-box"><h2>Template WhatsApp</h2><textarea id="waTemplate" rows="7"></textarea><p class="hint">Gunakan: {nama}, {model}, {plat}, {sa}, {tanggal_booking}</p><button id="saveSettingsBtn" class="btn primary">Simpan Template</button></div></section>',
+    '<section id="settingsPage" class="page"><div class="panel settings-box"><div class="panel-head"><h2>Template WhatsApp</h2><button id="addWaTemplateBtn" class="btn primary">+ Tambah Template</button></div><p class="hint">Bisa simpan banyak template. Gunakan: {nama}, {model}, {plat}, {sa}, {tanggal_booking}</p><div id="waTemplateList" class="template-list"></div><button id="saveSettingsBtn" class="btn primary">Simpan Semua Template</button></div></section>');
 
-function findHeaderIndex(headerLookup,aliases){
-  for(const alias of aliases){
-    const key=normalizeHeaderName(alias);
-    if(Object.prototype.hasOwnProperty.call(headerLookup,key)) return headerLookup[key];
-  }
-  return -1;
-}
+  html=html.replace('<div id="toast" class="toast"></div>',
+    '<div id="waTemplateModal" class="modal-backdrop"><div class="modal-card"><h3>Pilih Template WhatsApp</h3><div id="waTemplateChoices" class="template-pick"></div><button id="waTemplateClose" class="btn" style="margin-top:12px">Tutup</button></div></div><div id="toast" class="toast"></div>');
 
-function detectHeaderRow(matrix){
-  let best={rowIndex:-1,score:-1,lookup:null};
-  const maxRows=Math.min(matrix.length,25);
-  for(let i=0;i<maxRows;i++){
-    const lookup=buildHeaderLookup(matrix[i]||[]);
-    let score=0;
-    for(const aliases of Object.values(HEADER_ALIASES)){
-      if(findHeaderIndex(lookup,aliases)>=0) score++;
-    }
-    if(score>best.score) best={rowIndex:i,score,lookup};
-  }
-  return best;
-}
+  html=html.replace('const DEFAULT_WA="Selamat pagi Bapak/Ibu {nama}, kami dari Agung Toyota Gianyar ingin mengingatkan jadwal perawatan kendaraan {model} ({plat}). Apakah kami dapat membantu membuatkan booking servis?";',
+    MULTI_WA);
 
-async function importExcel(file){
-  if(!file)return;
-  const period=$("uploadPeriod").value;
-  if(!period)return toast("Pilih periode.");
+  html=html.replace('function waLink(r){let t=localStorage.getItem("pfu_wa_template")||DEFAULT_WA;t=t.replaceAll("{nama}",r.customer||"").replaceAll("{model}",r.model||"").replaceAll("{plat}",r.police_no||"").replaceAll("{sa}",r.service_advisor||"").replaceAll("{tanggal_booking}",r.booking_date||"");return`https://wa.me/${r.telephone}?text=${encodeURIComponent(t)}`}','');
 
-  $("uploadResult").textContent="Membaca file Excel...";
+  html=html.replace('${r.telephone?`<a class="wa-btn" target="_blank" href="${waLink(r)}">WhatsApp</a>`:"-"}',
+    '${r.telephone?`<button class="wa-btn row-wa" data-id="${r.id}" style="border:0;cursor:pointer">WhatsApp</button>`:"-"}');
 
-  try{
-    const b=await file.arrayBuffer();
-    const wb=XLSX.read(b,{type:"array"});
-    const ws=wb.Sheets[wb.SheetNames[0]];
-    const matrix=XLSX.utils.sheet_to_json(ws,{header:1,defval:"",raw:false});
+  html=html.replace('function bindTableEvents(){document.querySelectorAll(".row-status").forEach(e=>e.onchange=()=>updateRow(e.dataset.id,{follow_up_status:e.value}));document.querySelectorAll(".row-booking").forEach(e=>e.onchange=()=>updateBooking(e.dataset.id,e.value));document.querySelectorAll(".row-notes").forEach(e=>e.onchange=()=>updateRow(e.dataset.id,{notes:e.value}))}',
+    'function bindTableEvents(){document.querySelectorAll(".row-status").forEach(e=>e.onchange=()=>updateRow(e.dataset.id,{follow_up_status:e.value}));document.querySelectorAll(".row-booking").forEach(e=>e.onchange=()=>updateBooking(e.dataset.id,e.value));document.querySelectorAll(".row-notes").forEach(e=>e.onchange=()=>updateRow(e.dataset.id,{notes:e.value}));document.querySelectorAll(".row-wa").forEach(e=>e.onclick=()=>openWaTemplateModal(e.dataset.id))}');
 
-    const detected=detectHeaderRow(matrix);
-    if(detected.rowIndex<0 || detected.score<4){
-      $("uploadResult").textContent="Header tidak dikenali. Pastikan file memiliki kolom utama seperti POLICE_NO, CUSTOMER, MODEL, SERVICE_ADVISOR, TELEPHONE_CP, VIN/RANGKA, ADDRESS.";
-      return toast("Header Excel tidak dikenali");
-    }
+  html=html.replace(/const waButton=r\.telephone\s*\? `<a class="popup-wa" target="_blank" href="\$\{waLink\(r\)\}">WhatsApp<\/a>`\s*:\s*"";/,
+    'const waButton=r.telephone ? `<button class="popup-wa map-wa" data-id="${r.id}" style="border:0;cursor:pointer">WhatsApp</button>` : "";');
 
-    const lookup=detected.lookup;
-    const idx={
-      police_no:findHeaderIndex(lookup,HEADER_ALIASES.POLICE_NO),
-      customer_name:findHeaderIndex(lookup,HEADER_ALIASES.CUSTOMER),
-      model:findHeaderIndex(lookup,HEADER_ALIASES.MODEL),
-      vin:findHeaderIndex(lookup,HEADER_ALIASES.VIN),
-      service_advisor:findHeaderIndex(lookup,HEADER_ALIASES.SERVICE_ADVISOR),
-      telephone:findHeaderIndex(lookup,HEADER_ALIASES.TELEPHONE_CP),
-      rangka:findHeaderIndex(lookup,HEADER_ALIASES.RANGKA),
-      address:findHeaderIndex(lookup,HEADER_ALIASES.ADDRESS)
-    };
+  html=html.replace('setTimeout(()=>map.invalidateSize(),100)\n    }',
+    'setTimeout(()=>map.invalidateSize(),100);setTimeout(()=>document.querySelectorAll(".map-wa").forEach(e=>e.onclick=()=>openWaTemplateModal(e.dataset.id)),120)\n    }');
 
-    const valueAt=(row,index)=>index>=0?row[index]:"";
-    const parsed=matrix.slice(detected.rowIndex+1).map(row=>{
-      const vinValue=clean(valueAt(row,idx.vin));
-      const rangkaValue=clean(valueAt(row,idx.rangka));
-      return {
-        record_key:"",
-        period,
-        police_no:clean(valueAt(row,idx.police_no)),
-        customer_name:clean(valueAt(row,idx.customer_name)),
-        model:clean(valueAt(row,idx.model)),
-        vin:vinValue||rangkaValue,
-        km:0,
-        service_advisor:normalizeSA(valueAt(row,idx.service_advisor)),
-        telephone:normalizePhone(valueAt(row,idx.telephone)),
-        address:clean(valueAt(row,idx.address)),
-        latitude:null,
-        longitude:null,
-        follow_up_status:"Belum Follow Up",
-        booking_date:null,
-        booking_time:null,
-        notes:""
-      };
-    }).filter(r=>(r.police_no||r.customer_name||r.vin)&&["AYU","FIK","WBN","AJS"].includes(r.service_advisor));
+  html=html.replace('$("saveSettingsBtn").onclick=()=>{localStorage.setItem("pfu_wa_template",$("waTemplate").value||DEFAULT_WA);toast("Template disimpan")};',
+    '$("saveSettingsBtn").onclick=()=>{collectWaTemplates();toast("Semua template disimpan")};$("addWaTemplateBtn").onclick=addWaTemplate;');
 
-    if(!parsed.length){
-      $("uploadResult").textContent="Tidak ada baris yang bisa disimpan. Cek isi data dan SERVICE_ADVISOR (AYU/FIK/WBN/AJS).";
-      return toast("Tidak ada data valid");
-    }
+  html=html.replace('$("waTemplate").value=localStorage.getItem("pfu_wa_template")||DEFAULT_WA;',
+    'renderWaTemplateSettings();$("waTemplateClose").onclick=()=>$("waTemplateModal").classList.remove("show");$("waTemplateModal").onclick=e=>{if(e.target===$("waTemplateModal"))$("waTemplateModal").classList.remove("show")};');
 
-    parsed.forEach(r=>r.record_key=recordKey(r));
-
-    // Hapus data ganda di dalam file Excel sebelum dikirim ke Supabase.
-    // Jika record_key sama muncul lebih dari sekali, data terakhir yang dipakai.
-    const uniqueMap=new Map();
-    parsed.forEach(r=>uniqueMap.set(r.record_key,r));
-    const uniqueParsed=[...uniqueMap.values()];
-    const duplicateCount=parsed.length-uniqueParsed.length;
-
-    const {data:{user}}=await sb.auth.getUser();
-    const {error:batchError}=await sb.from("upload_batches")
-      .insert({period,file_name:file.name,total_rows:uniqueParsed.length,uploaded_by:user.id})
-      .select().single();
-
-    if(batchError)return toast("Gagal mencatat upload: "+batchError.message);
-
-    const {error}=await sb.from("customers").upsert(uniqueParsed,{onConflict:"record_key"});
-    if(error)return toast("Upload gagal: "+error.message);
-
-    $("uploadResult").textContent=\`\${parsed.length} baris berhasil disimpan online. Header terdeteksi pada baris \${detected.rowIndex+1}.\`;
-    await loadData();
-    toast("Upload berhasil");
-  }catch(error){
-    console.error(error);
-    $("uploadResult").textContent="Gagal membaca file: "+error.message;
-    toast("Upload gagal");
-  }
-}`;
-  try{
-    let html=await fetch(ORIGINAL_URL,{cache:"no-store"}).then(r=>{
-      if(!r.ok)throw new Error("HTTP "+r.status);
-      return r.text();
-    });
-
-    html=html.replace(
-      '<p>Header: POLICE_NO, CUSTOMER, MODEL, VIN, KM, SERVICE_ADVISOR, TELEPHONE_CP, RANGKA des, ADDRESS.</p>',
-      '<p>Header fleksibel. Sistem hanya mengambil: <b>POLICE_NO, CUSTOMER, MODEL, VIN, SERVICE_ADVISOR, TELEPHONE_CP, RANGKA, ADDRESS</b>. Kolom lain diabaikan.</p>'
-    );
-
-    const pattern=/    async function importExcel\(file\)\{.*?\}\n\n    const sleep=/s;
-    if(!pattern.test(html))throw new Error("Bagian importExcel lama tidak ditemukan.");
-    html=html.replace(pattern, NEW_IMPORT+"\n\n    const sleep=");
-
-    // V3 - Template WhatsApp multi pilihan
-    html=html.replace(
-      '.toast{position:fixed;right:18px;bottom:18px;background:#17313a;color:white;padding:12px 16px;border-radius:10px;opacity:0;pointer-events:none;transition:.2s;z-index:9999}.toast.show{opacity:1}',
-      '.toast{position:fixed;right:18px;bottom:18px;background:#17313a;color:white;padding:12px 16px;border-radius:10px;opacity:0;pointer-events:none;transition:.2s;z-index:9999}.toast.show{opacity:1}.template-list{display:grid;gap:10px}.template-card{border:1px solid var(--line);border-radius:12px;padding:12px;background:#fbfdfd}.template-card h3{margin:0 0 8px;font-size:15px}.template-card textarea{min-height:90px}.modal-backdrop{position:fixed;inset:0;background:#10292f88;display:none;align-items:center;justify-content:center;padding:16px;z-index:9998}.modal-backdrop.show{display:flex}.modal-card{width:min(560px,96vw);max-height:88vh;overflow:auto;background:#fff;border-radius:16px;border:1px solid var(--line);box-shadow:0 20px 60px #0003;padding:18px}.modal-card h3{margin:0 0 12px}.template-pick{display:grid;gap:9px}.template-pick button{width:100%;text-align:left;border:1px solid var(--line);background:#f8fbfb;padding:12px;border-radius:10px;cursor:pointer}.template-pick button b{display:block;margin-bottom:4px}.modal-close{margin-top:12px}'
-    );
-
-    html=html.replace(
-      '<section id="settingsPage" class="page"><div class="panel settings-box"><h2>Template WhatsApp</h2><textarea id="waTemplate" rows="7"></textarea><p class="hint">Gunakan: {nama}, {model}, {plat}, {sa}, {tanggal_booking}</p><button id="saveSettingsBtn" class="btn primary">Simpan Template</button></div></section>',
-      '<section id="settingsPage" class="page"><div class="panel settings-box"><h2>Template WhatsApp</h2><p class="hint">Template dapat diedit. Gunakan: {nama}, {model}, {plat}, {sa}, {tanggal_booking}</p><div id="waTemplateList" class="template-list"></div><button id="saveSettingsBtn" class="btn primary">Simpan Semua Template</button></div></section>'
-    );
-
-    html=html.replace(
-      '<div id="toast" class="toast"></div>',
-      '<div id="waTemplateModal" class="modal-backdrop"><div class="modal-card"><h3>Pilih Template WhatsApp</h3><div id="waTemplateChoices" class="template-pick"></div><button id="waTemplateClose" class="btn modal-close">Tutup</button></div></div><div id="toast" class="toast"></div>'
-    );
-
-    html=html.replace(
-      'const DEFAULT_WA="Selamat pagi Bapak/Ibu {nama}, kami dari Agung Toyota Gianyar ingin mengingatkan jadwal perawatan kendaraan {model} ({plat}). Apakah kami dapat membantu membuatkan booking servis?";',
-      'const DEFAULT_WA_TEMPLATES=[{id:"reminder",name:"Reminder Service",text:"Selamat pagi Bapak/Ibu {nama}, kami dari Agung Toyota Gianyar ingin mengingatkan jadwal perawatan kendaraan {model} ({plat}). Apakah kami dapat membantu membuatkan booking servis?"},{id:"followup",name:"Follow Up Belum Jawab",text:"Selamat pagi Bapak/Ibu {nama}, izin follow up kembali terkait pengingat servis kendaraan {model} ({plat}). Jika berkenan, kami siap membantu membuatkan jadwal servis."},{id:"booking",name:"Konfirmasi Booking",text:"Selamat pagi Bapak/Ibu {nama}, kami konfirmasi booking servis kendaraan {model} ({plat}) pada tanggal {tanggal_booking}. Terima kasih."},{id:"recall",name:"Hubungi Kembali",text:"Selamat pagi Bapak/Ibu {nama}, sesuai informasi sebelumnya kami menghubungi kembali terkait servis kendaraan {model} ({plat}). Apakah saat ini kami dapat membantu proses booking?"},{id:"promo",name:"Informasi Service",text:"Selamat pagi Bapak/Ibu {nama}, kami dari Agung Toyota Gianyar ingin menyampaikan informasi layanan untuk kendaraan {model} ({plat}). Silakan hubungi kami jika membutuhkan bantuan servis atau booking."}];'
-    );
-
-    html=html.replace(
-      'function waLink(r){let t=localStorage.getItem("pfu_wa_template")||DEFAULT_WA;t=t.replaceAll("{nama}",r.customer||"").replaceAll("{model}",r.model||"").replaceAll("{plat}",r.police_no||"").replaceAll("{sa}",r.service_advisor||"").replaceAll("{tanggal_booking}",r.booking_date||"");return`https://wa.me/${r.telephone}?text=${encodeURIComponent(t)}`}',
-      'function getWaTemplates(){try{const s=JSON.parse(localStorage.getItem("pfu_wa_templates")||"null");if(Array.isArray(s)&&s.length)return s}catch(e){}return DEFAULT_WA_TEMPLATES.map(x=>({...x}))}function saveWaTemplates(l){localStorage.setItem("pfu_wa_templates",JSON.stringify(l))}function fillWaTemplate(t,r){return String(t||"").replaceAll("{nama}",r.customer||"").replaceAll("{model}",r.model||"").replaceAll("{plat}",r.police_no||"").replaceAll("{sa}",r.service_advisor||"").replaceAll("{tanggal_booking}",r.booking_date||"")}function waUrlFromTemplate(r,t){return`https://wa.me/${r.telephone}?text=${encodeURIComponent(fillWaTemplate(t.text,r))}`}function renderWaTemplateSettings(){const l=getWaTemplates(),h=$("waTemplateList");if(!h)return;h.innerHTML=l.map((t,i)=>`<div class="template-card"><h3>${esc(t.name)}</h3><input class="wa-template-name" data-index="${i}" value="${esc(t.name)}"><textarea class="wa-template-text" data-index="${i}">${esc(t.text)}</textarea></div>`).join("")}function saveWaTemplateSettings(){const l=getWaTemplates();document.querySelectorAll(".wa-template-name").forEach(e=>{const i=Number(e.dataset.index);if(l[i])l[i].name=e.value.trim()||l[i].name});document.querySelectorAll(".wa-template-text").forEach(e=>{const i=Number(e.dataset.index);if(l[i])l[i].text=e.value});saveWaTemplates(l);toast("Semua template WhatsApp disimpan")}function openWaTemplateModal(id){const r=rows.find(x=>String(x.id)===String(id));if(!r||!r.telephone)return toast("Nomor WhatsApp tidak tersedia");const l=getWaTemplates();$("waTemplateChoices").innerHTML=l.map((t,i)=>`<button data-template-index="${i}"><b>${esc(t.name)}</b><span>${esc(fillWaTemplate(t.text,r)).slice(0,140)}</span></button>`).join("");$("waTemplateChoices").querySelectorAll("button").forEach(b=>b.onclick=()=>{window.open(waUrlFromTemplate(r,l[Number(b.dataset.templateIndex)]),"_blank");$("waTemplateModal").classList.remove("show")});$("waTemplateModal").classList.add("show")}'
-    );
-
-    html=html.replace(
-      '${r.telephone?`<a class="wa-btn" target="_blank" href="${waLink(r)}">WhatsApp</a>`:"-"}',
-      '${r.telephone?`<button class="wa-btn row-wa" data-id="${r.id}" style="border:0;cursor:pointer">WhatsApp</button>`:"-"}'
-    );
-
-    html=html.replace(
-      'function bindTableEvents(){document.querySelectorAll(".row-status").forEach(e=>e.onchange=()=>updateRow(e.dataset.id,{follow_up_status:e.value}));document.querySelectorAll(".row-booking").forEach(e=>e.onchange=()=>updateBooking(e.dataset.id,e.value));document.querySelectorAll(".row-notes").forEach(e=>e.onchange=()=>updateRow(e.dataset.id,{notes:e.value}))}',
-      'function bindTableEvents(){document.querySelectorAll(".row-status").forEach(e=>e.onchange=()=>updateRow(e.dataset.id,{follow_up_status:e.value}));document.querySelectorAll(".row-booking").forEach(e=>e.onchange=()=>updateBooking(e.dataset.id,e.value));document.querySelectorAll(".row-notes").forEach(e=>e.onchange=()=>updateRow(e.dataset.id,{notes:e.value}));document.querySelectorAll(".row-wa").forEach(e=>e.onclick=()=>openWaTemplateModal(e.dataset.id))}'
-    );
-
-    html=html.replace(
-      'const waButton=r.telephone\n          ? `<a class="popup-wa" target="_blank" href="${waLink(r)}">WhatsApp</a>`\n          : "";',
-      'const waButton=r.telephone\n          ? `<button class="popup-wa map-wa" data-id="${r.id}" style="border:0;cursor:pointer">WhatsApp</button>`\n          : "";'
-    );
-
-    html=html.replace(
-      'setTimeout(()=>map.invalidateSize(),100)\n    }',
-      'setTimeout(()=>map.invalidateSize(),100);setTimeout(()=>document.querySelectorAll(".map-wa").forEach(e=>e.onclick=()=>openWaTemplateModal(e.dataset.id)),120)\n    }'
-    );
-
-    html=html.replace(
-      '$("saveSettingsBtn").onclick=()=>{localStorage.setItem("pfu_wa_template",$("waTemplate").value||DEFAULT_WA);toast("Template disimpan")};',
-      '$("saveSettingsBtn").onclick=saveWaTemplateSettings;'
-    );
-
-    html=html.replace(
-      '$("waTemplate").value=localStorage.getItem("pfu_wa_template")||DEFAULT_WA;',
-      'renderWaTemplateSettings();$("waTemplateClose").onclick=()=>$("waTemplateModal").classList.remove("show");$("waTemplateModal").onclick=e=>{if(e.target===$("waTemplateModal"))$("waTemplateModal").classList.remove("show")};'
-    );
-
-    document.open();
-    document.write(html);
-    document.close();
-  }catch(err){
-    document.getElementById("loading").innerHTML=
-      "<b>Gagal memuat aplikasi.</b><br><small>"+String(err.message||err)+"</small>";
-    console.error(err);
-  }
+  document.open();document.write(html);document.close();
+ }catch(err){document.getElementById("loading").innerHTML="<b>Gagal memuat aplikasi.</b><br><small>"+String(err.message||err)+"</small>";console.error(err)}
 })();
-</script>
-</body>
-</html>
+</script></body></html>
