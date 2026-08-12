@@ -129,14 +129,21 @@ async function importExcel(file){
 
     parsed.forEach(r=>r.record_key=recordKey(r));
 
+    // Hapus data ganda di dalam file Excel sebelum dikirim ke Supabase.
+    // Jika record_key sama muncul lebih dari sekali, data terakhir yang dipakai.
+    const uniqueMap=new Map();
+    parsed.forEach(r=>uniqueMap.set(r.record_key,r));
+    const uniqueParsed=[...uniqueMap.values()];
+    const duplicateCount=parsed.length-uniqueParsed.length;
+
     const {data:{user}}=await sb.auth.getUser();
     const {error:batchError}=await sb.from("upload_batches")
-      .insert({period,file_name:file.name,total_rows:parsed.length,uploaded_by:user.id})
+      .insert({period,file_name:file.name,total_rows:uniqueParsed.length,uploaded_by:user.id})
       .select().single();
 
     if(batchError)return toast("Gagal mencatat upload: "+batchError.message);
 
-    const {error}=await sb.from("customers").upsert(parsed,{onConflict:"record_key"});
+    const {error}=await sb.from("customers").upsert(uniqueParsed,{onConflict:"record_key"});
     if(error)return toast("Upload gagal: "+error.message);
 
     $("uploadResult").textContent=\`\${parsed.length} baris berhasil disimpan online. Header terdeteksi pada baris \${detected.rowIndex+1}.\`;
