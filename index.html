@@ -11,7 +11,7 @@
 </head>
 <body>
   <div class="loading" id="loading">
-    <b>Memuat Peta Follow Up...</b><br><small>Versi upload Excel multi-header.</small>
+    <b>Memuat Peta Follow Up...</b><br><small>Versi multi-header + template WhatsApp.</small>
   </div>
 <script>
 (async()=>{
@@ -169,6 +169,62 @@ async function importExcel(file){
     const pattern=/    async function importExcel\(file\)\{.*?\}\n\n    const sleep=/s;
     if(!pattern.test(html))throw new Error("Bagian importExcel lama tidak ditemukan.");
     html=html.replace(pattern, NEW_IMPORT+"\n\n    const sleep=");
+
+    // V3 - Template WhatsApp multi pilihan
+    html=html.replace(
+      '.toast{position:fixed;right:18px;bottom:18px;background:#17313a;color:white;padding:12px 16px;border-radius:10px;opacity:0;pointer-events:none;transition:.2s;z-index:9999}.toast.show{opacity:1}',
+      '.toast{position:fixed;right:18px;bottom:18px;background:#17313a;color:white;padding:12px 16px;border-radius:10px;opacity:0;pointer-events:none;transition:.2s;z-index:9999}.toast.show{opacity:1}.template-list{display:grid;gap:10px}.template-card{border:1px solid var(--line);border-radius:12px;padding:12px;background:#fbfdfd}.template-card h3{margin:0 0 8px;font-size:15px}.template-card textarea{min-height:90px}.modal-backdrop{position:fixed;inset:0;background:#10292f88;display:none;align-items:center;justify-content:center;padding:16px;z-index:9998}.modal-backdrop.show{display:flex}.modal-card{width:min(560px,96vw);max-height:88vh;overflow:auto;background:#fff;border-radius:16px;border:1px solid var(--line);box-shadow:0 20px 60px #0003;padding:18px}.modal-card h3{margin:0 0 12px}.template-pick{display:grid;gap:9px}.template-pick button{width:100%;text-align:left;border:1px solid var(--line);background:#f8fbfb;padding:12px;border-radius:10px;cursor:pointer}.template-pick button b{display:block;margin-bottom:4px}.modal-close{margin-top:12px}'
+    );
+
+    html=html.replace(
+      '<section id="settingsPage" class="page"><div class="panel settings-box"><h2>Template WhatsApp</h2><textarea id="waTemplate" rows="7"></textarea><p class="hint">Gunakan: {nama}, {model}, {plat}, {sa}, {tanggal_booking}</p><button id="saveSettingsBtn" class="btn primary">Simpan Template</button></div></section>',
+      '<section id="settingsPage" class="page"><div class="panel settings-box"><h2>Template WhatsApp</h2><p class="hint">Template dapat diedit. Gunakan: {nama}, {model}, {plat}, {sa}, {tanggal_booking}</p><div id="waTemplateList" class="template-list"></div><button id="saveSettingsBtn" class="btn primary">Simpan Semua Template</button></div></section>'
+    );
+
+    html=html.replace(
+      '<div id="toast" class="toast"></div>',
+      '<div id="waTemplateModal" class="modal-backdrop"><div class="modal-card"><h3>Pilih Template WhatsApp</h3><div id="waTemplateChoices" class="template-pick"></div><button id="waTemplateClose" class="btn modal-close">Tutup</button></div></div><div id="toast" class="toast"></div>'
+    );
+
+    html=html.replace(
+      'const DEFAULT_WA="Selamat pagi Bapak/Ibu {nama}, kami dari Agung Toyota Gianyar ingin mengingatkan jadwal perawatan kendaraan {model} ({plat}). Apakah kami dapat membantu membuatkan booking servis?";',
+      'const DEFAULT_WA_TEMPLATES=[{id:"reminder",name:"Reminder Service",text:"Selamat pagi Bapak/Ibu {nama}, kami dari Agung Toyota Gianyar ingin mengingatkan jadwal perawatan kendaraan {model} ({plat}). Apakah kami dapat membantu membuatkan booking servis?"},{id:"followup",name:"Follow Up Belum Jawab",text:"Selamat pagi Bapak/Ibu {nama}, izin follow up kembali terkait pengingat servis kendaraan {model} ({plat}). Jika berkenan, kami siap membantu membuatkan jadwal servis."},{id:"booking",name:"Konfirmasi Booking",text:"Selamat pagi Bapak/Ibu {nama}, kami konfirmasi booking servis kendaraan {model} ({plat}) pada tanggal {tanggal_booking}. Terima kasih."},{id:"recall",name:"Hubungi Kembali",text:"Selamat pagi Bapak/Ibu {nama}, sesuai informasi sebelumnya kami menghubungi kembali terkait servis kendaraan {model} ({plat}). Apakah saat ini kami dapat membantu proses booking?"},{id:"promo",name:"Informasi Service",text:"Selamat pagi Bapak/Ibu {nama}, kami dari Agung Toyota Gianyar ingin menyampaikan informasi layanan untuk kendaraan {model} ({plat}). Silakan hubungi kami jika membutuhkan bantuan servis atau booking."}];'
+    );
+
+    html=html.replace(
+      'function waLink(r){let t=localStorage.getItem("pfu_wa_template")||DEFAULT_WA;t=t.replaceAll("{nama}",r.customer||"").replaceAll("{model}",r.model||"").replaceAll("{plat}",r.police_no||"").replaceAll("{sa}",r.service_advisor||"").replaceAll("{tanggal_booking}",r.booking_date||"");return`https://wa.me/${r.telephone}?text=${encodeURIComponent(t)}`}',
+      'function getWaTemplates(){try{const s=JSON.parse(localStorage.getItem("pfu_wa_templates")||"null");if(Array.isArray(s)&&s.length)return s}catch(e){}return DEFAULT_WA_TEMPLATES.map(x=>({...x}))}function saveWaTemplates(l){localStorage.setItem("pfu_wa_templates",JSON.stringify(l))}function fillWaTemplate(t,r){return String(t||"").replaceAll("{nama}",r.customer||"").replaceAll("{model}",r.model||"").replaceAll("{plat}",r.police_no||"").replaceAll("{sa}",r.service_advisor||"").replaceAll("{tanggal_booking}",r.booking_date||"")}function waUrlFromTemplate(r,t){return`https://wa.me/${r.telephone}?text=${encodeURIComponent(fillWaTemplate(t.text,r))}`}function renderWaTemplateSettings(){const l=getWaTemplates(),h=$("waTemplateList");if(!h)return;h.innerHTML=l.map((t,i)=>`<div class="template-card"><h3>${esc(t.name)}</h3><input class="wa-template-name" data-index="${i}" value="${esc(t.name)}"><textarea class="wa-template-text" data-index="${i}">${esc(t.text)}</textarea></div>`).join("")}function saveWaTemplateSettings(){const l=getWaTemplates();document.querySelectorAll(".wa-template-name").forEach(e=>{const i=Number(e.dataset.index);if(l[i])l[i].name=e.value.trim()||l[i].name});document.querySelectorAll(".wa-template-text").forEach(e=>{const i=Number(e.dataset.index);if(l[i])l[i].text=e.value});saveWaTemplates(l);toast("Semua template WhatsApp disimpan")}function openWaTemplateModal(id){const r=rows.find(x=>String(x.id)===String(id));if(!r||!r.telephone)return toast("Nomor WhatsApp tidak tersedia");const l=getWaTemplates();$("waTemplateChoices").innerHTML=l.map((t,i)=>`<button data-template-index="${i}"><b>${esc(t.name)}</b><span>${esc(fillWaTemplate(t.text,r)).slice(0,140)}</span></button>`).join("");$("waTemplateChoices").querySelectorAll("button").forEach(b=>b.onclick=()=>{window.open(waUrlFromTemplate(r,l[Number(b.dataset.templateIndex)]),"_blank");$("waTemplateModal").classList.remove("show")});$("waTemplateModal").classList.add("show")}'
+    );
+
+    html=html.replace(
+      '${r.telephone?`<a class="wa-btn" target="_blank" href="${waLink(r)}">WhatsApp</a>`:"-"}',
+      '${r.telephone?`<button class="wa-btn row-wa" data-id="${r.id}" style="border:0;cursor:pointer">WhatsApp</button>`:"-"}'
+    );
+
+    html=html.replace(
+      'function bindTableEvents(){document.querySelectorAll(".row-status").forEach(e=>e.onchange=()=>updateRow(e.dataset.id,{follow_up_status:e.value}));document.querySelectorAll(".row-booking").forEach(e=>e.onchange=()=>updateBooking(e.dataset.id,e.value));document.querySelectorAll(".row-notes").forEach(e=>e.onchange=()=>updateRow(e.dataset.id,{notes:e.value}))}',
+      'function bindTableEvents(){document.querySelectorAll(".row-status").forEach(e=>e.onchange=()=>updateRow(e.dataset.id,{follow_up_status:e.value}));document.querySelectorAll(".row-booking").forEach(e=>e.onchange=()=>updateBooking(e.dataset.id,e.value));document.querySelectorAll(".row-notes").forEach(e=>e.onchange=()=>updateRow(e.dataset.id,{notes:e.value}));document.querySelectorAll(".row-wa").forEach(e=>e.onclick=()=>openWaTemplateModal(e.dataset.id))}'
+    );
+
+    html=html.replace(
+      'const waButton=r.telephone\n          ? `<a class="popup-wa" target="_blank" href="${waLink(r)}">WhatsApp</a>`\n          : "";',
+      'const waButton=r.telephone\n          ? `<button class="popup-wa map-wa" data-id="${r.id}" style="border:0;cursor:pointer">WhatsApp</button>`\n          : "";'
+    );
+
+    html=html.replace(
+      'setTimeout(()=>map.invalidateSize(),100)\n    }',
+      'setTimeout(()=>map.invalidateSize(),100);setTimeout(()=>document.querySelectorAll(".map-wa").forEach(e=>e.onclick=()=>openWaTemplateModal(e.dataset.id)),120)\n    }'
+    );
+
+    html=html.replace(
+      '$("saveSettingsBtn").onclick=()=>{localStorage.setItem("pfu_wa_template",$("waTemplate").value||DEFAULT_WA);toast("Template disimpan")};',
+      '$("saveSettingsBtn").onclick=saveWaTemplateSettings;'
+    );
+
+    html=html.replace(
+      '$("waTemplate").value=localStorage.getItem("pfu_wa_template")||DEFAULT_WA;',
+      'renderWaTemplateSettings();$("waTemplateClose").onclick=()=>$("waTemplateModal").classList.remove("show");$("waTemplateModal").onclick=e=>{if(e.target===$("waTemplateModal"))$("waTemplateModal").classList.remove("show")};'
+    );
 
     document.open();
     document.write(html);

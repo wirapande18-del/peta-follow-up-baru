@@ -1,16 +1,14 @@
-PETA FOLLOW UP - MULTI HEADER V2
+PETA FOLLOW UP - V3 TEMPLATE WHATSAPP
 
-Perbaikan V2:
-- Tetap membaca header Excel fleksibel.
-- Hanya mengambil POLICE_NO, CUSTOMER, MODEL, VIN, SERVICE_ADVISOR, TELEPHONE_CP, RANGKA, ADDRESS.
-- Jika di file Excel ada baris ganda dengan record_key yang sama, sistem otomatis mengambil data terakhir dan mengabaikan duplikat.
-- Memperbaiki error:
-  ON CONFLICT DO UPDATE command cannot affect row a second time
+Fitur:
+- Multi-header Excel + anti duplikat
+- 5 template WhatsApp yang bisa diedit
+- Klik WhatsApp menampilkan pilihan template terlebih dahulu
+- Placeholder: {nama}, {model}, {plat}, {sa}, {tanggal_booking}
 
 Cara pasang:
-1. Extract ZIP.
-2. Upload index.html ke root repository GitHub peta-follow-up-baru.
-3. Replace index.html lama.
-4. Commit changes.
-5. Tunggu Vercel deploy.
-6. Coba Upload Bulanan lagi.
+1. Upload index.html ke root repository.
+2. Replace index.html lama.
+3. Commit.
+4. Tunggu Vercel deploy.
+5. Refresh aplikasi.
