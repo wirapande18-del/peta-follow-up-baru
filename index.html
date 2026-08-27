@@ -3,74 +3,23 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Peta Follow Up Service - Dashboard V5</title>
+<title>Peta Follow Up Service - Dashboard V5.1</title>
 <style>
 body{font-family:system-ui,Arial,sans-serif;background:#f3f7f8;color:#17313a;display:grid;place-items:center;min-height:100vh;margin:0}
 .loading{background:#fff;border:1px solid #dce8ea;border-radius:16px;padding:24px;max-width:600px;box-shadow:0 8px 28px #14343b18}
 </style>
 </head>
 <body>
-<div class="loading" id="loading"><b>Memuat Peta Follow Up...</b><br><small>Dashboard V5 • KPI + Funnel + Kinerja SA + Status</small></div>
+<div class="loading" id="loading"><b>Memuat Peta Follow Up...</b><br><small>Dashboard V5.1 • perbaikan loading</small></div>
 <script>
 (async()=>{
-  const CURRENT_STABLE='https://raw.githubusercontent.com/wirapande18-del/peta-follow-up-baru/95fff93b0977bc40fbb5f817162e2f9a01cde61a/index.html';
-
-  const DASHBOARD_PATCH = String.raw`
-    // DASHBOARD V5 - hanya tampilan dashboard, tidak mengubah database/fungsi existing
-    html=html.replace(
-      '.card strong{display:block;font-size:30px;margin-top:9px;color:var(--primary)}',
-      '.card strong{display:block;font-size:30px;margin-top:9px;color:var(--primary)}'+
-      '.cards .card{position:relative;overflow:hidden;transition:.2s}.cards .card:hover{transform:translateY(-2px);box-shadow:0 10px 25px #14343b18}.cards .card:before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--primary2)}'+
-      '.dash-grid{display:grid;grid-template-columns:1.25fr 1fr;gap:15px;margin-bottom:15px}.dash-panel{background:#fff;border:1px solid var(--line);border-radius:15px;box-shadow:0 4px 14px #14343b0d;padding:16px}.dash-title{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}.dash-title h3{margin:0;font-size:17px}.dash-title small{color:var(--muted)}'+
-      '.funnel{display:grid;gap:10px}.funnel-row{display:grid;grid-template-columns:135px 1fr 52px;align-items:center;gap:10px;font-size:13px;font-weight:700}.funnel-track{height:15px;background:#edf3f4;border-radius:999px;overflow:hidden}.funnel-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--primary),var(--primary2));min-width:3px}.funnel-row:nth-child(3) .funnel-fill{background:linear-gradient(90deg,#0b7c82,#18a957)}.funnel-row:nth-child(4) .funnel-fill{background:linear-gradient(90deg,#18a957,#56c98b)}'+
-      '.sa-list{display:grid;gap:12px}.sa-row{display:grid;grid-template-columns:44px 1fr 150px;gap:10px;align-items:center}.sa-name{font-weight:900;color:var(--primary)}.sa-bars{display:grid;gap:5px}.mini-track{height:8px;background:#edf3f4;border-radius:999px;overflow:hidden}.mini-fill{height:100%;background:var(--primary2);border-radius:999px}.sa-metrics{font-size:11px;color:var(--muted);text-align:right;line-height:1.5}.sa-metrics b{color:var(--text)}'+
-      '.status-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.status-item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 11px;border:1px solid #e7eff0;border-radius:11px;background:#fbfdfd}.status-item span{font-size:12px;color:#526b71}.status-item b{font-size:16px;color:var(--primary)}'+
-      '.insight-box{display:grid;gap:10px}.insight{padding:12px;border-radius:12px;background:#f5faf9;border:1px solid #e1eeeb}.insight b{display:block;color:var(--primary);margin-bottom:3px}.insight small{color:var(--muted);line-height:1.4}'+
-      '@media(max-width:1100px){.dash-grid{grid-template-columns:1fr}.sa-row{grid-template-columns:44px 1fr 125px}}@media(max-width:680px){.dash-grid{grid-template-columns:1fr}.funnel-row{grid-template-columns:105px 1fr 42px}.sa-row{grid-template-columns:38px 1fr}.sa-metrics{grid-column:2;text-align:left}.status-grid{grid-template-columns:1fr}}'
-    );
-
-    html=html.replace(
-      '<div class="panel"><div class="panel-head"><h2>Ringkasan Customer</h2><button id="exportBtn" class="btn">Download Excel</button></div><div id="dashboardTable"></div></div>',
-      '<div class="dash-grid">'+
-        '<div class="dash-panel"><div class="dash-title"><h3>📊 Funnel Follow Up</h3><small>Customer → Follow Up → Booking → Datang</small></div><div id="dashboardFunnel" class="funnel"></div></div>'+
-        '<div class="dash-panel"><div class="dash-title"><h3>🏆 Kinerja Service Advisor</h3><small>berdasarkan filter aktif</small></div><div id="dashboardSA" class="sa-list"></div></div>'+
-      '</div>'+
-      '<div class="dash-grid">'+
-        '<div class="dash-panel"><div class="dash-title"><h3>📌 Komposisi Status</h3><small>status customer saat ini</small></div><div id="dashboardStatus" class="status-grid"></div></div>'+
-        '<div class="dash-panel"><div class="dash-title"><h3>💡 Insight Cepat</h3><small>indikator untuk tindak lanjut</small></div><div id="dashboardInsight" class="insight-box"></div></div>'+
-      '</div>'+
-      '<div class="panel"><div class="panel-head"><h2>Ringkasan Customer</h2><button id="exportBtn" class="btn">Download Excel</button></div><div id="dashboardTable"></div></div>'
-    );
-
-    html=html.replace(
-      'function renderAll(){updateFilters();',
-      'function renderDashboardV5(l){'+
-        'const total=l.length,followed=l.filter(r=>r.follow_up_status!=="Belum Follow Up").length,booking=l.filter(r=>r.follow_up_status==="Berhasil Booking").length,arrived=l.filter(r=>r.follow_up_status==="Sudah Datang").length;'+
-        'const pct=n=>total?Math.round(n/total*100):0;'+
-        'const f=$("dashboardFunnel");if(f)f.innerHTML=[["Total Customer",total],["Sudah Follow Up",followed],["Berhasil Booking",booking],["Sudah Datang",arrived]].map(x=>`<div class="funnel-row"><span>${x[0]}</span><div class="funnel-track"><div class="funnel-fill" style="width:${pct(x[1])}%"></div></div><b>${x[1]}</b></div>`).join("");'+
-        'const sas=["AYU","FIK","WBN","AJS"],s=$("dashboardSA");if(s)s.innerHTML=sas.map(sa=>{const a=l.filter(r=>r.service_advisor===sa),fu=a.filter(r=>r.follow_up_status!=="Belum Follow Up").length,b=a.filter(r=>r.follow_up_status==="Berhasil Booking").length,d=a.filter(r=>r.follow_up_status==="Sudah Datang").length,rate=a.length?Math.round(fu/a.length*100):0;return `<div class="sa-row"><div class="sa-name">${sa}</div><div class="sa-bars"><div class="mini-track"><div class="mini-fill" style="width:${rate}%"></div></div></div><div class="sa-metrics"><b>${a.length}</b> cust • FU ${fu} • Booking ${b} • Datang ${d} • ${rate}%</div></div>`}).join("");'+
-        'const counts={};l.forEach(r=>counts[r.follow_up_status]=(counts[r.follow_up_status]||0)+1);const st=$("dashboardStatus");if(st)st.innerHTML=Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,8).map(x=>`<div class="status-item"><span>${x[0]}</span><b>${x[1]}</b></div>`).join("")||`<div class="empty">Belum ada data.</div>`;'+
-        'const pending=l.filter(r=>r.follow_up_status==="Belum Follow Up").length,answer=l.filter(r=>["Menunggu Jawaban","Hubungi Kembali"].includes(r.follow_up_status)).length,conversion=followed?Math.round((booking+arrived)/followed*100):0;const ins=$("dashboardInsight");if(ins)ins.innerHTML=`<div class="insight"><b>${pending} customer belum di-follow up</b><small>Prioritaskan customer ini agar coverage follow up meningkat.</small></div><div class="insight"><b>${answer} customer perlu tindak lanjut</b><small>Status Menunggu Jawaban / Hubungi Kembali.</small></div><div class="insight"><b>${conversion}% conversion dari follow up</b><small>Booking + Sudah Datang dibanding customer yang sudah ditindaklanjuti.</small></div>`;'+
-      '}'+
-      'function renderAll(){updateFilters();'
-    );
-
-    html=html.replace(
-      'bindTableEvents();if(currentPage==="map")renderMap()}',
-      'bindTableEvents();renderDashboardV5(l);if(currentPage==="map")renderMap()}'
-    );
-  `;
-
+  const V4_URL='https://raw.githubusercontent.com/wirapande18-del/peta-follow-up-baru/95fff93b0977bc40fbb5f817162e2f9a01cde61a/index.html';
+  const PATCH="\n    // DASHBOARD V5.1 - patch tampilan dashboard saja\n    html=html.replace(\n      '.card strong{display:block;font-size:30px;margin-top:9px;color:var(--primary)}',\n      '.card strong{display:block;font-size:30px;margin-top:9px;color:var(--primary)}'+\n      '.cards .card{position:relative;overflow:hidden;transition:.2s}.cards .card:hover{transform:translateY(-2px);box-shadow:0 10px 25px #14343b18}.cards .card:before{content:\"\";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--primary2)}'+\n      '.dash-grid{display:grid;grid-template-columns:1.25fr 1fr;gap:15px;margin-bottom:15px}.dash-panel{background:#fff;border:1px solid var(--line);border-radius:15px;box-shadow:0 4px 14px #14343b0d;padding:16px}.dash-title{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}.dash-title h3{margin:0;font-size:17px}.dash-title small{color:var(--muted)}'+\n      '.funnel{display:grid;gap:10px}.funnel-row{display:grid;grid-template-columns:135px 1fr 52px;align-items:center;gap:10px;font-size:13px;font-weight:700}.funnel-track{height:15px;background:#edf3f4;border-radius:999px;overflow:hidden}.funnel-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--primary),var(--primary2));min-width:3px}.funnel-row:nth-child(3) .funnel-fill{background:linear-gradient(90deg,#0b7c82,#18a957)}.funnel-row:nth-child(4) .funnel-fill{background:linear-gradient(90deg,#18a957,#56c98b)}'+\n      '.sa-list{display:grid;gap:12px}.sa-row{display:grid;grid-template-columns:44px 1fr 150px;gap:10px;align-items:center}.sa-name{font-weight:900;color:var(--primary)}.sa-bars{display:grid;gap:5px}.mini-track{height:8px;background:#edf3f4;border-radius:999px;overflow:hidden}.mini-fill{height:100%;background:var(--primary2);border-radius:999px}.sa-metrics{font-size:11px;color:var(--muted);text-align:right;line-height:1.5}.sa-metrics b{color:var(--text)}'+\n      '.status-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.status-item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 11px;border:1px solid #e7eff0;border-radius:11px;background:#fbfdfd}.status-item span{font-size:12px;color:#526b71}.status-item b{font-size:16px;color:var(--primary)}'+\n      '.insight-box{display:grid;gap:10px}.insight{padding:12px;border-radius:12px;background:#f5faf9;border:1px solid #e1eeeb}.insight b{display:block;color:var(--primary);margin-bottom:3px}.insight small{color:var(--muted);line-height:1.4}'+\n      '@media(max-width:1100px){.dash-grid{grid-template-columns:1fr}.sa-row{grid-template-columns:44px 1fr 125px}}@media(max-width:680px){.dash-grid{grid-template-columns:1fr}.funnel-row{grid-template-columns:105px 1fr 42px}.sa-row{grid-template-columns:38px 1fr}.sa-metrics{grid-column:2;text-align:left}.status-grid{grid-template-columns:1fr}}'\n    );\n\n    html=html.replace(\n      '<div class=\"panel\"><div class=\"panel-head\"><h2>Ringkasan Customer</h2><button id=\"exportBtn\" class=\"btn\">Download Excel</button></div><div id=\"dashboardTable\"></div></div>',\n      '<div class=\"dash-grid\">'+\n        '<div class=\"dash-panel\"><div class=\"dash-title\"><h3>\ud83d\udcca Funnel Follow Up</h3><small>Customer \u2192 Follow Up \u2192 Booking \u2192 Datang</small></div><div id=\"dashboardFunnel\" class=\"funnel\"></div></div>'+\n        '<div class=\"dash-panel\"><div class=\"dash-title\"><h3>\ud83c\udfc6 Kinerja Service Advisor</h3><small>berdasarkan filter aktif</small></div><div id=\"dashboardSA\" class=\"sa-list\"></div></div>'+\n      '</div>'+\n      '<div class=\"dash-grid\">'+\n        '<div class=\"dash-panel\"><div class=\"dash-title\"><h3>\ud83d\udccc Komposisi Status</h3><small>status customer saat ini</small></div><div id=\"dashboardStatus\" class=\"status-grid\"></div></div>'+\n        '<div class=\"dash-panel\"><div class=\"dash-title\"><h3>\ud83d\udca1 Insight Cepat</h3><small>indikator untuk tindak lanjut</small></div><div id=\"dashboardInsight\" class=\"insight-box\"></div></div>'+\n      '</div>'+\n      '<div class=\"panel\"><div class=\"panel-head\"><h2>Ringkasan Customer</h2><button id=\"exportBtn\" class=\"btn\">Download Excel</button></div><div id=\"dashboardTable\"></div></div>'\n    );\n\n    const DASH_FN = 'function renderDashboardV5(l){'+\n      'const total=l.length,followed=l.filter(r=>r.follow_up_status!==\"Belum Follow Up\").length,booking=l.filter(r=>r.follow_up_status===\"Berhasil Booking\").length,arrived=l.filter(r=>r.follow_up_status===\"Sudah Datang\").length;'+\n      'const pct=n=>total?Math.round(n/total*100):0;'+\n      'const f=$(\"dashboardFunnel\");if(f)f.innerHTML=[[\"Total Customer\",total],[\"Sudah Follow Up\",followed],[\"Berhasil Booking\",booking],[\"Sudah Datang\",arrived]].map(x=>\"<div class=\\\\\"funnel-row\\\\\"><span>\"+x[0]+\"</span><div class=\\\\\"funnel-track\\\\\"><div class=\\\\\"funnel-fill\\\\\" style=\\\\\"width:\"+pct(x[1])+\"%\\\\\"></div></div><b>\"+x[1]+\"</b></div>\").join(\"\");'+\n      'const sas=[\"AYU\",\"FIK\",\"WBN\",\"AJS\"],s=$(\"dashboardSA\");if(s)s.innerHTML=sas.map(sa=>{const a=l.filter(r=>r.service_advisor===sa),fu=a.filter(r=>r.follow_up_status!==\"Belum Follow Up\").length,b=a.filter(r=>r.follow_up_status===\"Berhasil Booking\").length,d=a.filter(r=>r.follow_up_status===\"Sudah Datang\").length,rate=a.length?Math.round(fu/a.length*100):0;return \"<div class=\\\\\"sa-row\\\\\"><div class=\\\\\"sa-name\\\\\">\"+sa+\"</div><div class=\\\\\"sa-bars\\\\\"><div class=\\\\\"mini-track\\\\\"><div class=\\\\\"mini-fill\\\\\" style=\\\\\"width:\"+rate+\"%\\\\\"></div></div></div><div class=\\\\\"sa-metrics\\\\\"><b>\"+a.length+\"</b> cust \u2022 FU \"+fu+\" \u2022 Booking \"+b+\" \u2022 Datang \"+d+\" \u2022 \"+rate+\"%</div></div>\"}).join(\"\");'+\n      'const counts={};l.forEach(r=>counts[r.follow_up_status]=(counts[r.follow_up_status]||0)+1);const st=$(\"dashboardStatus\");if(st)st.innerHTML=Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,8).map(x=>\"<div class=\\\\\"status-item\\\\\"><span>\"+x[0]+\"</span><b>\"+x[1]+\"</b></div>\").join(\"\")||\"<div class=\\\\\"empty\\\\\">Belum ada data.</div>\";'+\n      'const pending=l.filter(r=>r.follow_up_status===\"Belum Follow Up\").length,answer=l.filter(r=>[\"Menunggu Jawaban\",\"Hubungi Kembali\"].includes(r.follow_up_status)).length,conversion=followed?Math.round((booking+arrived)/followed*100):0;const ins=$(\"dashboardInsight\");if(ins)ins.innerHTML=\"<div class=\\\\\"insight\\\\\"><b>\"+pending+\" customer belum di-follow up</b><small>Prioritaskan customer ini agar coverage follow up meningkat.</small></div><div class=\\\\\"insight\\\\\"><b>\"+answer+\" customer perlu tindak lanjut</b><small>Status Menunggu Jawaban / Hubungi Kembali.</small></div><div class=\\\\\"insight\\\\\"><b>\"+conversion+\"% conversion dari follow up</b><small>Booking + Sudah Datang dibanding customer yang sudah ditindaklanjuti.</small></div>\";'+\n    '}';\n\n    html=html.replace('function renderAll(){updateFilters();', DASH_FN+'function renderAll(){updateFilters();');\n    html=html.replace('bindTableEvents();if(currentPage===\"map\")renderMap()}', 'bindTableEvents();renderDashboardV5(l);if(currentPage===\"map\")renderMap()}');\n";
   try{
-    let wrapper=await fetch(CURRENT_STABLE,{cache:"no-store"}).then(r=>{
-      if(!r.ok) throw new Error("HTTP "+r.status);
-      return r.text();
-    });
-
-    const needle='    document.open();';
-    if(!wrapper.includes(needle)) throw new Error("Struktur V4 tidak ditemukan.");
-
-    wrapper=wrapper.replace(needle, DASHBOARD_PATCH + '\n' + needle);
+    let wrapper=await fetch(V4_URL,{cache:"no-store"}).then(r=>{if(!r.ok)throw new Error("HTTP "+r.status);return r.text();});
+    const marker='    document.open();';
+    if(!wrapper.includes(marker))throw new Error("Struktur aplikasi V4 tidak ditemukan.");
+    wrapper=wrapper.replace(marker, PATCH+"\n"+marker);
     document.open();
     document.write(wrapper);
     document.close();
