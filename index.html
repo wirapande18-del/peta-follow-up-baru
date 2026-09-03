@@ -77,7 +77,7 @@
       <header class="topbar">
         <div>
           <h1 id="pageTitle">Dashboard</h1>
-          <p>Monitoring follow up, WhatsApp, dan booking customer. <small style="font-weight:700">V6.2 MASTER</small></p>
+          <p>Monitoring follow up, WhatsApp, dan booking customer. <small style="font-weight:700">V6.4 MASTER</small></p>
         </div>
         <span id="dataCount" class="badge">0 data</span>
       </header>
@@ -130,7 +130,7 @@
       <section id="uploadPage" class="page">
         <div class="panel upload-box">
           <h2>Upload Data Bulanan</h2>
-          <p><b>Header Excel fleksibel.</b> Aplikasi hanya mengambil: POLICE NO, MODEL, CUSTOMER, ADDRESS/ALAMAT, TELEPHONE CP, dan SERVICE ADVISOR. Kolom lainnya diabaikan.</p>
+          <p><b>Header Excel sangat fleksibel.</b> File tetap bisa di-upload selama aplikasi menemukan <b>minimal 1 dari 6 field</b>: POLICE NO, MODEL, CUSTOMER, ADDRESS/ALAMAT, TELEPHONE CP, atau SERVICE ADVISOR. Field yang tidak ada akan dibiarkan kosong dan kolom lainnya diabaikan.</p>
           <div id="schemaWarning" class="schema-warning hidden"><b>Persiapan database diperlukan.</b><br>Jalankan file <b>SUPABASE-MIGRATION-V6.sql</b> satu kali di Supabase SQL Editor sebelum upload TGB / CR-7. Data lama tidak dihapus dan otomatis dianggap Service Berkala.</div>
           <label>Jenis data follow up</label>
           <select id="uploadType"><option value="SERVICE">Service Berkala</option><option value="TGB">Battery / TGB</option><option value="CR7">CR-7</option></select>
@@ -227,7 +227,14 @@
     const typeLabel=v=>FOLLOW_TYPES[normalizeType(v)]||"Service Berkala";
     function normalizePhone(v){const d=String(v??"").replace(/\D/g,"");if(!d)return"";if(d.startsWith("62"))return d;if(d.startsWith("0"))return"62"+d.slice(1);return"62"+d}
     function normalizeSA(v){const x=clean(v).toUpperCase();if(x.includes("AYU"))return"AYU";if(x.includes("FIK")||x.includes("FIX"))return"FIK";if(x.includes("WBN"))return"WBN";if(x.includes("AJS"))return"AJS";return x}
-    const recordKey=r=>{const base=`${r.period}|${r.service_advisor}|${r.police_no}|${r.vin}`.toUpperCase();return normalizeType(r.follow_up_type)==="SERVICE"?base:`${normalizeType(r.follow_up_type)}|${base}`};
+    const recordKey=r=>{
+      const type=normalizeType(r.follow_up_type);
+      // Pertahankan pola lama bila SA + police no tersedia agar data existing tidak terduplikasi.
+      if(r.service_advisor&&r.police_no){const base=`${r.period}|${r.service_advisor}|${r.police_no}|${r.vin}`.toUpperCase();return type==="SERVICE"?base:`${type}|${base}`}
+      // Untuk file parsial, buat key stabil dari field yang memang tersedia.
+      const flex=[r.period,r.service_advisor,r.police_no,r.customer_name||r.customer,r.model,r.telephone,r.address].map(v=>clean(v).toUpperCase()).join("|");
+      return `FLEX|${type}|${flex}`;
+    };
     async function login(){const email=$("loginEmail").value.trim(),password=$("loginPassword").value;if(!email||!password)return toast("Isi email dan password.");const {error}=await sb.auth.signInWithPassword({email,password});if(error)return toast("Login gagal: "+error.message);await initializeSession()}
     async function logout(){await sb.auth.signOut();location.reload()}
     async function initializeSession(){const {data:{session}}=await sb.auth.getSession();if(!session)return;const {data,error}=await sb.from("profiles").select("*").eq("id",session.user.id).single();if(error||!data)return toast("Profil pengguna belum terhubung.");profile=data;profile.role=String(profile.role||"").trim().toUpperCase();profile.sa_code=String(profile.sa_code||"").trim().toUpperCase();$("loginPage").classList.add("hidden");$("app").classList.remove("hidden");$("currentUser").textContent=`${profile.display_name} • ${profile.role}`;$("saFilter").disabled=profile.role!=="ADMIN";$("downloadSA").disabled=profile.role!=="ADMIN";const uploadNav=document.querySelector('.nav[data-page="upload"]');if(profile.role!=="ADMIN"){if(profile.sa_code){$("saFilter").value=profile.sa_code;$("downloadSA").value=profile.sa_code}if(uploadNav)uploadNav.classList.add("hidden");document.querySelectorAll(".admin-only").forEach(el=>el.classList.add("hidden"));const geocodeBtn=$("geocodeBtn");if(geocodeBtn)geocodeBtn.classList.add("hidden")}else{if(uploadNav)uploadNav.classList.remove("hidden");document.querySelectorAll(".admin-only").forEach(el=>el.classList.remove("hidden"))}await checkTypeSchema();await loadData()}
@@ -252,8 +259,62 @@
     function getTemplateForType(type){const t=normalizeType(type),store=getTemplateStore(),active=store[t]?.active||"1",text=store[t]?.slots?.[active]?.text;return String(text||DEFAULT_TEMPLATES[t]||DEFAULT_WA)}
     function waLink(r){let t=getTemplateForType(r.follow_up_type);t=t.replaceAll("{nama}",r.customer||"").replaceAll("{model}",r.model||"").replaceAll("{plat}",r.police_no||"").replaceAll("{sa}",r.service_advisor||"").replaceAll("{tanggal_booking}",r.booking_date||"").replaceAll("{jenis_follow_up}",typeLabel(r.follow_up_type));return`https://wa.me/${r.telephone}?text=${encodeURIComponent(t)}`}
     function normHeader(v){return String(v??"").trim().toUpperCase().replace(/[^A-Z0-9]+/g," ").trim()}
-    function pickFlex(row,aliases){const m={};Object.keys(row||{}).forEach(k=>m[normHeader(k)]=row[k]);for(const a of aliases){const k=normHeader(a);if(Object.prototype.hasOwnProperty.call(m,k)&&String(m[k]??"").trim()!=="")return m[k]}return ""}
-    async function importExcel(file){if(!file)return;if(!profile||profile.role!=="ADMIN")return toast("Hanya ADMIN yang dapat upload data.");const period=$("uploadPeriod").value,type=$("uploadType").value;if(!period)return toast("Pilih periode.");if(!typeColumnReady&&type!=="SERVICE")return toast("Jalankan SUPABASE-MIGRATION-V6.sql dulu sebelum upload TGB / CR-7.");const b=await file.arrayBuffer(),wb=XLSX.read(b,{type:"array"}),ws=wb.Sheets[wb.SheetNames[0]],raw=XLSX.utils.sheet_to_json(ws,{defval:""});const parsed=raw.map(x=>({record_key:"",period,follow_up_type:type,police_no:clean(pickFlex(x,["POLICE NO","POLICE_NO","POLICE NUMBER","NO POLISI","NO. POLISI","NOPOL","PLAT","PLAT NOMOR","PLATE NO"])),customer_name:clean(pickFlex(x,["CUSTOMER","CUSTOMER NAME","CUSTOMER_NAME","NAMA CUSTOMER","NAMA PELANGGAN"])),model:clean(pickFlex(x,["MODEL","MODEL KENDARAAN","VEHICLE MODEL"])),vin:"",km:0,service_advisor:normalizeSA(pickFlex(x,["SERVICE ADVISOR","SERVICE_ADVISOR","SERVICEADVISOR","SA","NAMA SA"])),telephone:normalizePhone(pickFlex(x,["TELEPHONE CP","TELEPHONE_CP","TELEPHONECP","TELEPHONE","TELP CP","TELP","PHONE","PHONE CP","HANDPHONE","NO HP","NO. HP","HP","MOBILE","CONTACT PERSON PHONE"])),address:clean(pickFlex(x,["ADDRESS","ALAMAT","CUSTOMER ADDRESS","CUSTOMER_ADDRESS","ADDRESS CUSTOMER"])),latitude:null,longitude:null,follow_up_status:"Belum Follow Up",booking_date:null,booking_time:null,notes:""})).filter(r=>(r.police_no||r.customer_name)&&["AYU","FIK","WBN","AJS"].includes(r.service_advisor));if(!parsed.length)return toast("Tidak ada baris yang terbaca. Pastikan Excel memiliki Police No/Customer dan Service Advisor AYU/FIK/WBN/AJS.");parsed.forEach(r=>r.record_key=recordKey(r));const {data:{user}}=await sb.auth.getUser();let batchPayload={period,file_name:file.name,total_rows:parsed.length,uploaded_by:user.id};if(typeColumnReady)batchPayload.follow_up_type=type;const {error:batchError}=await sb.from("upload_batches").insert(batchPayload);if(batchError&&!String(batchError.message||"").includes("follow_up_type"))return toast("Gagal mencatat upload: "+batchError.message);const payload=typeColumnReady?parsed:parsed.map(({follow_up_type,...r})=>r);const {error}=await sb.from("customers").upsert(payload,{onConflict:"record_key"});if(error)return toast("Upload gagal: "+error.message);$("uploadResult").textContent=`${parsed.length} baris ${typeLabel(type)} berhasil disimpan. Hanya 6 field utama dari Excel yang diambil; kolom lain diabaikan.`;await loadData();toast("Upload berhasil") }
+    const FLEX_ALIASES={
+      police:["POLICE NO","POLICE_NO","POLICE NUMBER","NO POLISI","NO. POLISI","NOMOR POLISI","NOPOL","PLAT","PLAT NOMOR","PLATE NO","POLICE NUMBER NO"],
+      model:["MODEL","MODEL KENDARAAN","VEHICLE MODEL","TIPE KENDARAAN"],
+      customer:["CUSTOMER","CUSTOMER NAME","CUSTOMER_NAME","NAMA CUSTOMER","NAMA PELANGGAN","CUSTOMER NAME 1"],
+      address:["ADDRESS","ALAMAT","CUSTOMER ADDRESS","CUSTOMER_ADDRESS","ADDRESS CUSTOMER","ALAMAT CUSTOMER"],
+      phone:["TELEPHONE CP","TELEPHONE_CP","TELEPHONECP","TELEPHONE CP 1","TELEPHONE","TELP CP","TELP","PHONE","PHONE CP","HANDPHONE","NO HP","NO. HP","HP","MOBILE","CONTACT PERSON PHONE","TELEPHONE CONTACT PERSON","TELP CONTACT PERSON","HP CP"],
+      sa:["SERVICE ADVISOR","SERVICE_ADVISOR","SERVICEADVISOR","SA","NAMA SA","SERVICE ADVISOR NAME"]
+    };
+    function headerMatch(v,aliases){const n=normHeader(v);return aliases.some(a=>n===normHeader(a))}
+    function detectHeaderRow(matrix){let best={idx:0,score:-1};for(let i=0;i<Math.min(matrix.length,40);i++){const row=matrix[i]||[];let score=0;for(const aliases of Object.values(FLEX_ALIASES)){if(row.some(v=>headerMatch(v,aliases)))score++}if(score>best.score)best={idx:i,score}}return best}
+    function valueByHeader(row,headers,aliases){for(let i=0;i<headers.length;i++){if(headerMatch(headers[i],aliases)){const v=row[i];if(String(v??"").trim()!=="")return v}}return ""}
+    function detectedFieldInfo(headers){
+      const defs=[
+        ["POLICE NO","police"],["MODEL","model"],["CUSTOMER","customer"],
+        ["ADDRESS/ALAMAT","address"],["TELEPHONE CP","phone"],["SERVICE ADVISOR","sa"]
+      ];
+      return defs.map(([label,key])=>({label,key,found:headers.some(h=>headerMatch(h,FLEX_ALIASES[key]))}));
+    }
+    async function importExcel(file){
+      if(!file)return;
+      if(!profile||profile.role!=="ADMIN")return toast("Hanya ADMIN yang dapat upload data.");
+      const period=$("uploadPeriod").value,type=$("uploadType").value;
+      if(!period)return toast("Pilih periode.");
+      if(!typeColumnReady&&type!=="SERVICE")return toast("Jalankan SUPABASE-MIGRATION-V6.sql dulu sebelum upload TGB / CR-7.");
+      const b=await file.arrayBuffer(),wb=XLSX.read(b,{type:"array"}),ws=wb.Sheets[wb.SheetNames[0]],matrix=XLSX.utils.sheet_to_json(ws,{header:1,defval:"",raw:true,blankrows:false});
+      const found=detectHeaderRow(matrix);
+      if(found.score<1)return toast("Tidak ditemukan satupun dari 6 field yang diperlukan. Minimal harus ada salah satu: Police No, Model, Customer, Address/Alamat, Telephone CP, atau Service Advisor.");
+      const headers=(matrix[found.idx]||[]).map(normHeader);
+      const detected=detectedFieldInfo(headers), detectedNames=detected.filter(x=>x.found).map(x=>x.label), missingNames=detected.filter(x=>!x.found).map(x=>x.label);
+      const rawRows=matrix.slice(found.idx+1);
+      const parsed=rawRows.map(row=>({
+        record_key:"",period,follow_up_type:type,
+        police_no:clean(valueByHeader(row,headers,FLEX_ALIASES.police)),
+        customer_name:clean(valueByHeader(row,headers,FLEX_ALIASES.customer)),
+        model:clean(valueByHeader(row,headers,FLEX_ALIASES.model)),
+        vin:"",km:0,
+        service_advisor:normalizeSA(valueByHeader(row,headers,FLEX_ALIASES.sa)),
+        telephone:normalizePhone(valueByHeader(row,headers,FLEX_ALIASES.phone)),
+        address:clean(valueByHeader(row,headers,FLEX_ALIASES.address)),
+        latitude:null,longitude:null,follow_up_status:"Belum Follow Up",booking_date:null,booking_time:null,notes:""
+      })).filter(r=>[r.police_no,r.customer_name,r.model,r.address,r.telephone,r.service_advisor].some(v=>String(v||"").trim()!==""));
+      if(!parsed.length)return toast("Header dikenali, tetapi tidak ada baris data yang berisi salah satu dari 6 field.");
+      parsed.forEach(r=>r.record_key=recordKey(r));
+      const withPhone=parsed.filter(r=>r.telephone).length;
+      const withSA=parsed.filter(r=>r.service_advisor).length;
+      const {data:{user}}=await sb.auth.getUser();
+      let batchPayload={period,file_name:file.name,total_rows:parsed.length,uploaded_by:user.id};if(typeColumnReady)batchPayload.follow_up_type=type;
+      const {error:batchError}=await sb.from("upload_batches").insert(batchPayload);
+      if(batchError&&!String(batchError.message||"").includes("follow_up_type"))return toast("Gagal mencatat upload: "+batchError.message);
+      const payload=typeColumnReady?parsed:parsed.map(({follow_up_type,...r})=>r);
+      const {error}=await sb.from("customers").upsert(payload,{onConflict:"record_key"});
+      if(error)return toast("Upload gagal: "+error.message);
+      $("uploadResult").innerHTML=`<b>${parsed.length} baris ${typeLabel(type)} berhasil disimpan.</b><br>Field terdeteksi ${detectedNames.length}/6: ${detectedNames.join(", ")}.<br>${missingNames.length?`Field tidak ada (dikosongkan): ${missingNames.join(", ")}.<br>`:""}Nomor WA terbaca ${withPhone}/${parsed.length} • SA terbaca ${withSA}/${parsed.length} • Header ditemukan pada baris ${found.idx+1}.`;
+      await loadData();
+      toast(`Upload berhasil • ${detectedNames.length}/6 field terdeteksi`);
+    }
 
     const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 
