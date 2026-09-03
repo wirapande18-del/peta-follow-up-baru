@@ -77,7 +77,7 @@
       <header class="topbar">
         <div>
           <h1 id="pageTitle">Dashboard</h1>
-          <p>Monitoring follow up, WhatsApp, dan booking customer. <small style="font-weight:700">V6.4 MASTER</small></p>
+          <p>Monitoring follow up, WhatsApp, dan booking customer. <small style="font-weight:700">V6.5 MASTER</small></p>
         </div>
         <span id="dataCount" class="badge">0 data</span>
       </header>
@@ -225,7 +225,18 @@
     const esc=v=>String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
     const normalizeType=v=>{const x=String(v||"SERVICE").trim().toUpperCase().replace(/[\s_-]+/g,"");if(["TGB","BATTERY","BATTERYTGB"].includes(x))return "TGB";if(["CR7","CR-7"].includes(String(v||"").trim().toUpperCase())||x==="CR7")return "CR7";return "SERVICE"};
     const typeLabel=v=>FOLLOW_TYPES[normalizeType(v)]||"Service Berkala";
-    function normalizePhone(v){const d=String(v??"").replace(/\D/g,"");if(!d)return"";if(d.startsWith("62"))return d;if(d.startsWith("0"))return"62"+d.slice(1);return"62"+d}
+    function normalizePhone(v){
+      let raw=String(v??"").trim(); if(!raw)return"";
+      // Excel kadang membaca nomor sebagai angka/desimal. Ambil digit saja.
+      let d=raw.replace(/\.0+$/,"").replace(/\D/g,"");
+      if(!d)return"";
+      // Abaikan awalan 00 internasional.
+      if(d.startsWith("0062"))d=d.slice(2);
+      if(d.startsWith("62"))return d;
+      if(d.startsWith("0"))return"62"+d.slice(1);
+      if(d.startsWith("8"))return"62"+d;
+      return d;
+    }
     function normalizeSA(v){const x=clean(v).toUpperCase();if(x.includes("AYU"))return"AYU";if(x.includes("FIK")||x.includes("FIX"))return"FIK";if(x.includes("WBN"))return"WBN";if(x.includes("AJS"))return"AJS";return x}
     const recordKey=r=>{
       const type=normalizeType(r.follow_up_type);
@@ -246,7 +257,7 @@
     function renderDashboardV55(l){const total=l.length,followed=l.filter(r=>r.follow_up_status!=="Belum Follow Up").length,booking=l.filter(r=>r.follow_up_status==="Berhasil Booking").length,arrived=l.filter(r=>r.follow_up_status==="Sudah Datang").length;const pct=n=>total?Math.round(n/total*100):0;const f=$("dashboardFunnel");if(f)f.innerHTML=[["Total Customer",total],["Sudah Follow Up",followed],["Berhasil Booking",booking],["Sudah Datang",arrived]].map(x=>`<div class="funnel-row"><span>${x[0]}</span><div class="funnel-track"><div class="funnel-fill" style="width:${pct(x[1])}%"></div></div><b>${x[1]}</b></div>`).join("");const sas=["AYU","FIK","WBN","AJS"],saHost=$("dashboardSA");if(saHost)saHost.innerHTML=sas.map(sa=>{const a=l.filter(r=>r.service_advisor===sa),fu=a.filter(r=>r.follow_up_status!=="Belum Follow Up").length,b=a.filter(r=>r.follow_up_status==="Berhasil Booking").length,d=a.filter(r=>r.follow_up_status==="Sudah Datang").length,rate=a.length?Math.round(fu/a.length*100):0;return `<div class="sa-row"><div class="sa-name">${sa}</div><div class="mini-track"><div class="mini-fill" style="width:${rate}%"></div></div><div class="sa-metrics"><b>${a.length}</b> cust • FU ${fu} • Booking ${b}<br>Datang ${d} • ${rate}%</div></div>`}).join("");const counts={};l.forEach(r=>counts[r.follow_up_status]=(counts[r.follow_up_status]||0)+1);const st=$("dashboardStatus");if(st)st.innerHTML=Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,8).map(x=>`<div class="status-item"><span>${esc(x[0])}</span><b>${x[1]}</b></div>`).join("")||'<div class="empty">Belum ada data.</div>';const pending=l.filter(r=>r.follow_up_status==="Belum Follow Up").length,followagain=l.filter(r=>["Menunggu Jawaban","Hubungi Kembali"].includes(r.follow_up_status)).length,conversion=followed?Math.round((booking+arrived)/followed*100):0;const ins=$("dashboardInsight");if(ins)ins.innerHTML=`<div class="insight"><b>${pending} customer belum di-follow up</b><small>Prioritaskan agar coverage follow up meningkat.</small></div><div class="insight"><b>${followagain} customer perlu tindak lanjut</b><small>Menunggu Jawaban / Hubungi Kembali.</small></div><div class="insight"><b>${conversion}% conversion follow up</b><small>Booking + Sudah Datang dibanding customer yang sudah ditindaklanjuti.</small></div>`}
     function renderTypeSummary(){const host=$("typeSummary");if(!host)return;const active=$("typeFilter").value;host.innerHTML=Object.entries(FOLLOW_TYPES).map(([key,label])=>{const a=rows.filter(r=>normalizeType(r.follow_up_type)===key&&(profile?.role==="ADMIN"||!profile?.sa_code||r.service_advisor===profile.sa_code));const fu=a.filter(r=>r.follow_up_status!=="Belum Follow Up").length;return `<div class="type-card ${active===key?"active":""}" data-type="${key}"><span class="type-badge">${esc(label)}</span><strong>${a.length}</strong><small>${fu} sudah follow up</small></div>`}).join("");host.querySelectorAll(".type-card").forEach(c=>c.onclick=()=>{$("typeFilter").value=c.dataset.type;renderAll()})}
     function renderAll(){updateFilters();renderTypeSummary();const l=visibleRows(),total=l.length,followed=l.filter(r=>r.follow_up_status!=="Belum Follow Up").length,booking=l.filter(r=>r.follow_up_status==="Berhasil Booking").length,arrived=l.filter(r=>r.follow_up_status==="Sudah Datang").length;$("dataCount").textContent=`${total} data`;$("statTotal").textContent=total;$("statFollowed").textContent=followed;$("statBooking").textContent=booking;$("statArrived").textContent=arrived;$("statRate").textContent=total?`${Math.round(followed/total*100)}%`:"0%";$("dashboardTable").innerHTML=tableHTML(l.slice(0,20));$("followupTable").innerHTML=tableHTML(l);$("bookingTable").innerHTML=tableHTML(l.filter(r=>r.booking_date||["Berhasil Booking","Sudah Datang","Batal"].includes(r.follow_up_status)));bindTableEvents();renderDashboardV55(l);if(currentPage==="map")renderMap()}
-    function tableHTML(l){if(!l.length)return'<div class="empty">Belum ada data.</div>';return`<div class="table-wrap"><table><thead><tr><th>Jenis Follow Up</th><th>Customer</th><th>Plat</th><th>Model</th><th>SA</th><th>Telepon</th><th>Status</th><th>Booking</th><th>Catatan</th><th>WA</th></tr></thead><tbody>${l.map(r=>`<tr><td class="follow-type-cell">${esc(typeLabel(r.follow_up_type))}</td><td><b>${esc(r.customer)}</b><small>${esc(r.address)}</small></td><td>${esc(r.police_no)}</td><td>${esc(r.model)}</td><td>${esc(r.service_advisor)}</td><td>${esc(r.telephone||"-")}</td><td><select class="status-select row-status" data-id="${r.id}">${STATUS_LIST.map(s=>`<option ${s===r.follow_up_status?"selected":""}>${s}</option>`).join("")}</select></td><td><input class="booking-input row-booking" data-id="${r.id}" type="date" value="${r.booking_date||""}"></td><td><input class="notes-input row-notes" data-id="${r.id}" value="${esc(r.notes||"")}" placeholder="Catatan..."></td><td>${r.telephone?`<a class="wa-btn" target="_blank" href="${waLink(r)}">WhatsApp</a>`:"-"}</td></tr>`).join("")}</tbody></table></div>`}
+    function tableHTML(l){if(!l.length)return'<div class="empty">Belum ada data.</div>';return`<div class="table-wrap"><table><thead><tr><th>Jenis Follow Up</th><th>Customer</th><th>Plat</th><th>Model</th><th>SA</th><th>Telepon</th><th>Status</th><th>Booking</th><th>Catatan</th><th>WA</th></tr></thead><tbody>${l.map(r=>`<tr><td class="follow-type-cell">${esc(typeLabel(r.follow_up_type))}</td><td><b>${esc(r.customer)}</b><small>${esc(r.address)}</small></td><td>${esc(r.police_no)}</td><td>${esc(r.model)}</td><td>${esc(r.service_advisor)}</td><td>${esc(r.telephone||"-")}</td><td><select class="status-select row-status" data-id="${r.id}">${STATUS_LIST.map(s=>`<option ${s===r.follow_up_status?"selected":""}>${s}</option>`).join("")}</select></td><td><input class="booking-input row-booking" data-id="${r.id}" type="date" value="${r.booking_date||""}"></td><td><input class="notes-input row-notes" data-id="${r.id}" value="${esc(r.notes||"")}" placeholder="Catatan..."></td><td>${r.telephone?`<a class="wa-btn" target="_blank" href="${waLink(r)}">WA Me</a>`:"-"}</td></tr>`).join("")}</tbody></table></div>`}
     function bindTableEvents(){document.querySelectorAll(".row-status").forEach(e=>e.onchange=()=>updateRow(e.dataset.id,{follow_up_status:e.value}));document.querySelectorAll(".row-booking").forEach(e=>e.onchange=()=>updateBooking(e.dataset.id,e.value));document.querySelectorAll(".row-notes").forEach(e=>e.onchange=()=>updateRow(e.dataset.id,{notes:e.value}))}
     async function updateRow(id,patch){const {error}=await sb.from("customers").update(patch).eq("id",id);if(error)return toast("Gagal menyimpan: "+error.message);const row=rows.find(r=>r.id===id);if(row&&patch.follow_up_status){await sb.from("follow_ups").insert({customer_id:id,follow_up_date:new Date().toISOString().slice(0,10),service_advisor:row.service_advisor,status:patch.follow_up_status,notes:patch.notes||row.notes||"",wa_sent:false})}await loadData();toast("Data tersimpan online")}
     async function updateBooking(id,date){const row=rows.find(r=>r.id===id);if(!row)return;const patch={booking_date:date||null,follow_up_status:date?"Berhasil Booking":"Belum Follow Up"};const {error}=await sb.from("customers").update(patch).eq("id",id);if(error)return toast("Gagal menyimpan booking: "+error.message);if(date){await sb.from("bookings").insert({customer_id:id,booking_date:date,booking_status:"Terjadwal",remarks:"Dibuat dari aplikasi"})}await loadData();toast("Booking tersimpan")}
@@ -260,22 +271,44 @@
     function waLink(r){let t=getTemplateForType(r.follow_up_type);t=t.replaceAll("{nama}",r.customer||"").replaceAll("{model}",r.model||"").replaceAll("{plat}",r.police_no||"").replaceAll("{sa}",r.service_advisor||"").replaceAll("{tanggal_booking}",r.booking_date||"").replaceAll("{jenis_follow_up}",typeLabel(r.follow_up_type));return`https://wa.me/${r.telephone}?text=${encodeURIComponent(t)}`}
     function normHeader(v){return String(v??"").trim().toUpperCase().replace(/[^A-Z0-9]+/g," ").trim()}
     const FLEX_ALIASES={
-      police:["POLICE NO","POLICE_NO","POLICE NUMBER","NO POLISI","NO. POLISI","NOMOR POLISI","NOPOL","PLAT","PLAT NOMOR","PLATE NO","POLICE NUMBER NO"],
-      model:["MODEL","MODEL KENDARAAN","VEHICLE MODEL","TIPE KENDARAAN"],
-      customer:["CUSTOMER","CUSTOMER NAME","CUSTOMER_NAME","NAMA CUSTOMER","NAMA PELANGGAN","CUSTOMER NAME 1"],
-      address:["ADDRESS","ALAMAT","CUSTOMER ADDRESS","CUSTOMER_ADDRESS","ADDRESS CUSTOMER","ALAMAT CUSTOMER"],
-      phone:["TELEPHONE CP","TELEPHONE_CP","TELEPHONECP","TELEPHONE CP 1","TELEPHONE","TELP CP","TELP","PHONE","PHONE CP","HANDPHONE","NO HP","NO. HP","HP","MOBILE","CONTACT PERSON PHONE","TELEPHONE CONTACT PERSON","TELP CONTACT PERSON","HP CP"],
-      sa:["SERVICE ADVISOR","SERVICE_ADVISOR","SERVICEADVISOR","SA","NAMA SA","SERVICE ADVISOR NAME"]
+      police:["POLICE NO","POLICE_NO","POLICE NUMBER","NO POLISI","NO. POLISI","NOMOR POLISI","NOPOL","PLAT","PLAT NOMOR","PLATE NO","POLICE NUMBER NO","LICENSE PLATE","REGISTRATION NO"],
+      model:["MODEL","MODEL KENDARAAN","VEHICLE MODEL","TIPE KENDARAAN","VEHICLE TYPE"],
+      customer:["CUSTOMER","CUSTOMER NAME","CUSTOMER_NAME","NAMA CUSTOMER","NAMA PELANGGAN","CUSTOMER NAME 1","NAME CUSTOMER"],
+      address:["ADDRESS","ALAMAT","CUSTOMER ADDRESS","CUSTOMER_ADDRESS","ADDRESS CUSTOMER","ALAMAT CUSTOMER","CUSTOMER ADDRES","ADDRES"],
+      phone:["TELEPHONE CP","TELEPHONE_CP","TELEPHONECP","TELEPHONE CP 1","TELEPHONE","TELEPHOEN CP","TELP CP","TELP","PHONE","PHONE CP","HANDPHONE","HAND PHONE","NO HP","NO. HP","NOMOR HP","HP","HP CP","MOBILE","MOBILE PHONE","WHATSAPP","WA","WA CUSTOMER","NO WA","NOMOR WA","CONTACT PERSON PHONE","TELEPHONE CONTACT PERSON","TELP CONTACT PERSON","CONTACT PHONE","PHONE NUMBER","MOBILE NUMBER"],
+      sa:["SERVICE ADVISOR","SERVICE_ADVISOR","SERVICEADVISOR","SA","NAMA SA","SERVICE ADVISOR NAME","ADVISOR","ADVISER"]
     };
-    function headerMatch(v,aliases){const n=normHeader(v);return aliases.some(a=>n===normHeader(a))}
+    function fuzzyHeaderMatch(v,key){
+      const n=normHeader(v); if(!n)return false;
+      if(FLEX_ALIASES[key].some(a=>n===normHeader(a)))return true;
+      const words=n.split(/\s+/);
+      if(key==="phone") return /(TELEP|TELP|PHONE|HANDPHONE|MOBILE|WHATSAPP)/.test(n) || words.includes("HP") || words.includes("WA") || ((words.includes("CONTACT")||words.includes("CP"))&&(words.includes("PHONE")||words.includes("TELP")||words.includes("TELEPHONE")||words.includes("HP")));
+      if(key==="police") return (n.includes("POLICE")&&(n.includes("NO")||n.includes("NUMBER"))) || n.includes("NOPOL") || n.includes("NO POLISI") || n.includes("PLAT") || n.includes("LICENSE PLATE");
+      if(key==="model") return n==="MODEL" || n.includes("MODEL KENDARAAN") || n.includes("VEHICLE MODEL");
+      if(key==="customer") return n==="CUSTOMER" || n.includes("CUSTOMER NAME") || n.includes("NAMA CUSTOMER") || n.includes("NAMA PELANGGAN");
+      if(key==="address") return n.includes("ADDRESS") || n.includes("ADDRES") || n.includes("ALAMAT");
+      if(key==="sa") return n==="SA" || n.includes("SERVICE ADVISOR") || n.includes("SERVICE ADVISER") || n.includes("NAMA SA");
+      return false;
+    }
+    function headerMatch(v,aliases){const key=Object.keys(FLEX_ALIASES).find(k=>FLEX_ALIASES[k]===aliases);return key?fuzzyHeaderMatch(v,key):aliases.some(a=>normHeader(v)===normHeader(a))}
     function detectHeaderRow(matrix){let best={idx:0,score:-1};for(let i=0;i<Math.min(matrix.length,40);i++){const row=matrix[i]||[];let score=0;for(const aliases of Object.values(FLEX_ALIASES)){if(row.some(v=>headerMatch(v,aliases)))score++}if(score>best.score)best={idx:i,score}}return best}
     function valueByHeader(row,headers,aliases){for(let i=0;i<headers.length;i++){if(headerMatch(headers[i],aliases)){const v=row[i];if(String(v??"").trim()!=="")return v}}return ""}
+
+    function valueByKey(row,headers,key){
+      for(let i=0;i<headers.length;i++){
+        if(fuzzyHeaderMatch(headers[i],key)){
+          const v=row[i];
+          if(String(v??"").trim()!=="")return v;
+        }
+      }
+      return "";
+    }
     function detectedFieldInfo(headers){
       const defs=[
         ["POLICE NO","police"],["MODEL","model"],["CUSTOMER","customer"],
         ["ADDRESS/ALAMAT","address"],["TELEPHONE CP","phone"],["SERVICE ADVISOR","sa"]
       ];
-      return defs.map(([label,key])=>({label,key,found:headers.some(h=>headerMatch(h,FLEX_ALIASES[key]))}));
+      return defs.map(([label,key])=>({label,key,found:headers.some(h=>fuzzyHeaderMatch(h,key))}));
     }
     async function importExcel(file){
       if(!file)return;
@@ -291,13 +324,13 @@
       const rawRows=matrix.slice(found.idx+1);
       const parsed=rawRows.map(row=>({
         record_key:"",period,follow_up_type:type,
-        police_no:clean(valueByHeader(row,headers,FLEX_ALIASES.police)),
-        customer_name:clean(valueByHeader(row,headers,FLEX_ALIASES.customer)),
-        model:clean(valueByHeader(row,headers,FLEX_ALIASES.model)),
+        police_no:clean(valueByKey(row,headers,"police")),
+        customer_name:clean(valueByKey(row,headers,"customer")),
+        model:clean(valueByKey(row,headers,"model")),
         vin:"",km:0,
-        service_advisor:normalizeSA(valueByHeader(row,headers,FLEX_ALIASES.sa)),
-        telephone:normalizePhone(valueByHeader(row,headers,FLEX_ALIASES.phone)),
-        address:clean(valueByHeader(row,headers,FLEX_ALIASES.address)),
+        service_advisor:normalizeSA(valueByKey(row,headers,"sa")),
+        telephone:normalizePhone(valueByKey(row,headers,"phone")),
+        address:clean(valueByKey(row,headers,"address")),
         latitude:null,longitude:null,follow_up_status:"Belum Follow Up",booking_date:null,booking_time:null,notes:""
       })).filter(r=>[r.police_no,r.customer_name,r.model,r.address,r.telephone,r.service_advisor].some(v=>String(v||"").trim()!==""));
       if(!parsed.length)return toast("Header dikenali, tetapi tidak ada baris data yang berisi salah satu dari 6 field.");
@@ -311,7 +344,8 @@
       const payload=typeColumnReady?parsed:parsed.map(({follow_up_type,...r})=>r);
       const {error}=await sb.from("customers").upsert(payload,{onConflict:"record_key"});
       if(error)return toast("Upload gagal: "+error.message);
-      $("uploadResult").innerHTML=`<b>${parsed.length} baris ${typeLabel(type)} berhasil disimpan.</b><br>Field terdeteksi ${detectedNames.length}/6: ${detectedNames.join(", ")}.<br>${missingNames.length?`Field tidak ada (dikosongkan): ${missingNames.join(", ")}.<br>`:""}Nomor WA terbaca ${withPhone}/${parsed.length} • SA terbaca ${withSA}/${parsed.length} • Header ditemukan pada baris ${found.idx+1}.`;
+      const phoneHeaders=headers.filter(h=>fuzzyHeaderMatch(h,"phone"));
+      $("uploadResult").innerHTML=`<b>${parsed.length} baris ${typeLabel(type)} berhasil disimpan.</b><br>Field terdeteksi ${detectedNames.length}/6: ${detectedNames.join(", ")}.<br>${missingNames.length?`Field tidak ada (dikosongkan): ${missingNames.join(", ")}.<br>`:""}Nomor WA terbaca ${withPhone}/${parsed.length} • SA terbaca ${withSA}/${parsed.length} • Header ditemukan pada baris ${found.idx+1}.<br>${phoneHeaders.length?`Header nomor WA terdeteksi: ${phoneHeaders.join(", ")}`:"Header nomor WA belum terdeteksi."}`;
       await loadData();
       toast(`Upload berhasil • ${detectedNames.length}/6 field terdeteksi`);
     }
