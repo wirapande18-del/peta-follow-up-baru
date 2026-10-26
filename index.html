@@ -206,6 +206,9 @@
           <select id="deleteType"><option value="SERVICE">Service Berkala</option><option value="TGB">Battery / TGB</option><option value="CR7">CR-7</option><option value="ALL">Semua Jenis</option></select>
           <label>Pilih tanggal/periode upload</label>
           <select id="deletePeriod"><option value="">Pilih tanggal/periode upload</option></select>
+          <label>Judul Data Upload</label>
+          <select id="deleteProgram"><option value="">Semua Judul / Data Lama</option></select>
+          <p id="deleteProgramHint" class="hint">Pilih judul agar penghapusan atau reset hanya berlaku pada program tersebut, tanpa menghapus master customer.</p>
           <p class="hint">Data baru dapat dihapus tepat berdasarkan tanggal upload yang dipilih. Data lama tetap tampil dengan periode bulan sebelumnya.</p>
           <button id="deletePeriodBtn" class="btn danger">Hapus Data Periode Terpilih</button>
           <button id="resetStatusBtn" class="btn">Reset Status Follow Up Periode Terpilih</button>
@@ -505,11 +508,28 @@
     function updateDeletePeriods(){
       const select=$("deletePeriod"); if(!select)return;
       const current=select.value;
-      const periods=[...new Set(rows.map(r=>r.period).filter(Boolean))].sort().reverse();
+      const periods=[...new Set([...rows.map(r=>r.period),...programs.map(p=>p.period)].filter(Boolean))].sort().reverse();
       select.innerHTML='<option value="">Pilih periode</option>'+periods.map(p=>`<option value="${esc(p)}">${esc(p)}</option>`).join("");
       if(periods.includes(current))select.value=current;
+      updateDeletePrograms();
     }
-
+    function updateDeletePrograms(){
+      const el=$("deleteProgram");if(!el)return;
+      const old=el.value, period=$("deletePeriod")?.value||"", type=$("deleteType")?.value||"ALL";
+      const eligible=programs.filter(p=>(!period||p.period===period)&&(type==="ALL"||normalizeType(p.follow_up_type)===type));
+      el.innerHTML='<option value="">Semua Judul / Data Lama (operasi periode)</option>'+eligible.map(p=>`<option value="${esc(p.id)}">${esc(p.title)} — ${esc(p.period)} (${esc(p.mode)})</option>`).join("");
+      if(eligible.some(p=>p.id===old))el.value=old;
+      updateDeleteProgramHint();
+    }
+    function updateDeleteProgramHint(){
+      const id=$("deleteProgram")?.value, hint=$("deleteProgramHint");if(!hint)return;
+      const p=programs.find(x=>x.id===id);
+      hint.textContent=p?`Program: ${p.title} • ${programLinks.filter(x=>x.program_id===p.id).length} customer. Hapus = hanya program dan relasinya; reset = hanya status program. Data customer, booking, riwayat FU global, dan program lain aman.`:'Belum memilih judul: tindakan periode akan mengikuti mekanisme lama dan dapat memengaruhi master customer. Pilih judul khusus agar perubahan terbatas pada program.';
+      $("clearPinsBtn").disabled=!!p;
+      $("clearPinsBtn").title=p?'Koordinat peta adalah data customer bersama, tidak bisa dibatasi per judul.':'';
+      $("deletePeriodBtn").textContent=p?'Hapus Judul Program Terpilih':'Hapus Data Periode Terpilih';
+      $("resetStatusBtn").textContent=p?'Reset Status Program Terpilih':'Reset Status Follow Up Periode Terpilih';
+    }
     async function customerIdsForPeriod(period,type="ALL"){
       let q=sb.from("customers").select("id,follow_up_type").eq("period",period);
       let {data,error}=await q;
@@ -527,7 +547,17 @@
     async function deletePeriodData(){
       if(!profile||profile.role!=="ADMIN")return toast("Hanya ADMIN.");
       const period=$("deletePeriod").value;
-      if(!period)return toast("Pilih periode.");
+      const chosen=$("deleteProgram")?.value;
+      if(chosen){
+        const p=programs.find(x=>x.id===chosen);
+        if(!p||p.period!==period||($("deleteType").value!=="ALL"&&normalizeType(p.follow_up_type)!==$("deleteType").value))return toast("Judul program tidak cocok dengan filter.");
+        if(!confirm(`Hapus hanya judul program "${p.title}" (${p.period})? Customer utama, booking dan riwayat follow up lama TIDAK dihapus.`))return;
+        if(prompt(`Ketik HAPUS PROGRAM untuk menghapus "${p.title}":`)!=="HAPUS PROGRAM")return toast("Dibatalkan");
+        const {data:removed,error}=await sb.from("followup_programs").delete().eq("id",p.id).select("id");
+        if(error)return toast("Gagal menghapus program: "+error.message+". Periksa izin RLS DELETE.");
+        if(!removed?.length)return toast("Program tidak terhapus. Izin DELETE belum aktif; jalankan SQL izin program.");
+        historyProgramId=null;await loadData();toast("Judul program dihapus; master customer tetap aman.");return;
+      }
       if(!confirm(`Hapus semua data periode ${period}?`))return;
       if(!confirm(`Yakin? Data periode ${period} tidak dapat dikembalikan.`))return;
       try{
@@ -545,7 +575,15 @@
     async function resetPeriodStatus(){
       if(!profile||profile.role!=="ADMIN")return toast("Hanya ADMIN.");
       const period=$("deletePeriod").value;
-      if(!period)return toast("Pilih periode.");
+      const chosen=$("deleteProgram")?.value;
+      if(chosen){
+        const p=programs.find(x=>x.id===chosen);
+        if(!p||p.period!==period||($("deleteType").value!=="ALL"&&normalizeType(p.follow_up_type)!==$("deleteType").value))return toast("Judul program tidak cocok dengan filter.");
+        if(!confirm(`Reset hanya status FU dan catatan program "${p.title}"? Status master customer tidak berubah.`))return;
+        const {error}=await sb.from("followup_program_customers").update({status:"Belum Follow Up",notes:"",follow_up_date:null,updated_at:new Date().toISOString()}).eq("program_id",p.id);
+        if(error)return toast("Gagal reset program: "+error.message);
+        await loadData();toast("Status program direset tanpa mengubah data customer.");return;
+      }
       if(!confirm(`Reset status periode ${period}?`))return;
       const ids=await customerIdsForPeriod(period,$("deleteType").value);if(!ids.length)return toast("Tidak ada data sesuai jenis/periode.");
       const {error}=await sb.from("customers").update({
@@ -560,6 +598,7 @@
       if(!profile||profile.role!=="ADMIN")return toast("Hanya ADMIN.");
       const period=$("deletePeriod").value;
       if(!period)return toast("Pilih periode.");
+      if($("deleteProgram")?.value)return toast("Pin adalah milik master customer. Hapus pin per judul tidak tersedia agar program lain aman.");
       if(!confirm(`Hapus pin periode ${period}?`))return;
       const ids=await customerIdsForPeriod(period,$("deleteType").value);if(!ids.length)return toast("Tidak ada data sesuai jenis/periode.");
       const {error}=await sb.from("customers").update({latitude:null,longitude:null}).in("id",ids);
@@ -592,6 +631,7 @@
         if(!linkError)programLinks.push(...(links||[]));
       }
       renderProgramHistory();
+      updateDeletePrograms();
       renderAll(); // Refresh pilihan judul & rekap dashboard setelah program dimuat.
     }
     function renderProgramHistory(){
@@ -646,7 +686,7 @@
 
     function exportExcel(){const l=visibleRows().map(r=>({JENIS_FOLLOW_UP:typeLabel(r.follow_up_type),PERIODE:r.period,POLICE_NO:r.police_no,CUSTOMER:r.customer,MODEL:r.model,VIN:r.vin,KM:r.km,SERVICE_ADVISOR:r.service_advisor,TELEPHONE_CP:r.telephone,ADDRESS:r.address,STATUS:r.follow_up_status,TANGGAL_BOOKING:r.booking_date,CATATAN:r.notes}));if(!l.length)return toast("Tidak ada data.");const ws=XLSX.utils.json_to_sheet(l),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Follow Up");XLSX.writeFile(wb,`follow-up-${new Date().toISOString().slice(0,10)}.xlsx`)}
     function renderMap(){if(!map){map=L.map("map").setView([-8.544,115.325],10);L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:"© OpenStreetMap"}).addTo(map);markerLayer=L.layerGroup().addTo(map)}markerLayer.clearLayers();const pts=visibleRows().filter(r=>r.latitude&&r.longitude);pts.forEach(r=>L.marker([r.latitude,r.longitude]).bindPopup(`<b>${esc(r.customer)}</b><br>${esc(r.police_no)}<br>${esc(r.address)}`).addTo(markerLayer));if(pts.length)map.fitBounds(L.latLngBounds(pts.map(r=>[r.latitude,r.longitude])),{padding:[30,30]});setTimeout(()=>map.invalidateSize(),100)}
-    document.querySelectorAll(".nav[data-page]").forEach(b=>b.onclick=()=>setPage(b.dataset.page));$("loginBtn").onclick=login;$("logoutBtn").onclick=logout;$("searchInput").oninput=renderAll;$("typeFilter").onchange=renderAll;$("saFilter").onchange=renderAll;$("statusFilter").onchange=renderAll;$("periodFilter").onchange=renderAll;$("dashboardTitleFilter").onchange=renderAll;$("excelFile").onchange=e=>importExcel(e.target.files[0]);$("exportBtn").onclick=exportExcel;["downloadTitle","downloadUploadStart","downloadUploadEnd","downloadStatus"].forEach(id=>$(id).addEventListener("change",updateDownloadSummary));$("downloadType").onchange=updateDownloadSummary;$("downloadSA").onchange=updateDownloadSummary;$("downloadFollowedBtn").onclick=exportFollowedByPeriod;$("geocodeBtn").onclick=geocodeMissingRows;$("saveSettingsBtn").onclick=saveTemplateEditor;$("setActiveTemplateBtn").onclick=setActiveTemplate;$("waType").onchange=loadTemplateEditor;$("waSlot").onchange=loadTemplateEditor;$("deletePeriodBtn").onclick=deletePeriodData;$("resetStatusBtn").onclick=resetPeriodStatus;$("clearPinsBtn").onclick=clearPeriodPins;$("deleteAllBtn").onclick=deleteAllData;$("uploadPeriod").value=new Date().toISOString().slice(0,10);loadTemplateEditor();initializeSession();
+    document.querySelectorAll(".nav[data-page]").forEach(b=>b.onclick=()=>setPage(b.dataset.page));$("loginBtn").onclick=login;$("logoutBtn").onclick=logout;$("searchInput").oninput=renderAll;$("typeFilter").onchange=renderAll;$("saFilter").onchange=renderAll;$("statusFilter").onchange=renderAll;$("periodFilter").onchange=renderAll;$("dashboardTitleFilter").onchange=renderAll;$("excelFile").onchange=e=>importExcel(e.target.files[0]);$("exportBtn").onclick=exportExcel;["downloadTitle","downloadUploadStart","downloadUploadEnd","downloadStatus"].forEach(id=>$(id).addEventListener("change",updateDownloadSummary));$("downloadType").onchange=updateDownloadSummary;$("downloadSA").onchange=updateDownloadSummary;$("downloadFollowedBtn").onclick=exportFollowedByPeriod;$("geocodeBtn").onclick=geocodeMissingRows;$("saveSettingsBtn").onclick=saveTemplateEditor;$("setActiveTemplateBtn").onclick=setActiveTemplate;$("waType").onchange=loadTemplateEditor;$("waSlot").onchange=loadTemplateEditor;$("deleteType").onchange=updateDeletePrograms;$("deletePeriod").onchange=updateDeletePrograms;$("deleteProgram").onchange=updateDeleteProgramHint;$("deletePeriodBtn").onclick=deletePeriodData;$("resetStatusBtn").onclick=resetPeriodStatus;$("clearPinsBtn").onclick=clearPeriodPins;$("deleteAllBtn").onclick=deleteAllData;$("uploadPeriod").value=new Date().toISOString().slice(0,10);loadTemplateEditor();initializeSession();
   </script>
 </body>
 </html>
